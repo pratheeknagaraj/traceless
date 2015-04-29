@@ -4,8 +4,9 @@ heckup-Backend
 
 First, we need to setup the project.
 
-    # install mysql
+    # install mysql and swig
     brew install mysql
+    brew install swig
 
     # set up virtualenv
     mkvirtualenv traceless
