@@ -22,9 +22,9 @@ def suscribe():
             'client_sign_pk' : request.json['client_sign_pk']
         }
         user_table.append(user)
-    return jsonify({'user' : user, 
-                    'blinded_sign' : ust_sign(request.json['blinded_nonce']), 
-                    'server_pk' : app.jinja_env.globals['server_pk']}), 201
+        return jsonify({'user' : user, 
+                        'blinded_sign' : ust_sign(request.json['blinded_nonce']), 
+                        'server_pk' : app.jinja_env.globals['server_pk']}), 201
 
 @new_users.route('/update_user_table/<int:client_user_table_ptr>', methods=['POST'])
 def update_user_table(client_user_table_ptr):
@@ -40,6 +40,6 @@ def update_user_table(client_user_table_ptr):
     user_table_lock = current_app.jinja_env.globals['server_user_table_lock']
     with user_table_lock:
         new_users = user_table[client_user_table_ptr:]
-    return jsonify({'new_users' : new_users, 
-                    'blinded_sign' : ust_sign(request.json['blinded_nonce'])}), 200
+        return jsonify({'new_users' : new_users, 
+                        'blinded_sign' : ust_sign(request.json['blinded_nonce'])}), 200
         

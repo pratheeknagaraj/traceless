@@ -9,6 +9,8 @@ def create_app(config_name):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
     db.init_app(app)
+
+    app.jinja_env.globals['seen_commands'] = {}
     
     app.jinja_env.globals['server_user_table'] = []
     app.jinja_env.globals['server_user_table_lock'] = Lock()
@@ -24,6 +26,9 @@ def create_app(config_name):
     
     app.jinja_env.globals['server_deletion_nonces'] = {}
     app.jinja_env.globals['server_deletion_nonces_lock'] = Lock()
+
+    app.jinja_env.globals['server_reservation_table'] = {}
+    app.jinja_env.globals['server_reservation_table_lock'] = Lock()
     
     app.jinja_env.globals['server_current_block_range'] = (1, 1000000)
     # app.jinja_env.globals['server_pk'] =  
