@@ -1,8 +1,8 @@
-from flask import current_app
+from flask import current_app as app
 
 def verify(nonce, signature):
     n, d = app.jinja_env.globals['server_sk']
-    return (nonce ** d) % n == signature
+    return power(nonce, d, n) == signature
 
 def deletion_verify(nonce, signature, slot_id):
     if not verify(nonce, signature):
@@ -11,4 +11,16 @@ def deletion_verify(nonce, signature, slot_id):
 
 def ust_sign(blinded_nonce):
     n, d = app.jinja_env.globals['server_sk']
-    return (blinded_nonce ** d) % n
+    print blinded_nonce
+    print n, d
+    return power(blinded_nonce, d, n)
+
+def power(x, y, z):
+    number = 1
+    while y:
+        if y & 1:
+            number = number * x % z
+        y >>= 1
+        x = x * x % z
+    return number
+
