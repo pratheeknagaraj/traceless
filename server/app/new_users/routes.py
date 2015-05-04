@@ -20,9 +20,9 @@ def suscribe():
             if request.json['client_username'] in server_usernames:
                 return server_usernames[request.json['client_username']]
             user = {
-                'client_user_id' : len(user_table)
-                'client_username' : request.json['client_username']
-                'client_pk' : request.json['client_pk']
+                'client_user_id' : len(user_table),
+                'client_username' : request.json['client_username'],
+                'client_pk' : request.json['client_pk'],
                 'client_sign_pk' : request.json['client_sign_pk']
             }
             user_table.append(user)

@@ -7,7 +7,7 @@ from .. import traceless_crypto
 def hello_world():
     return "hello world"
 
-@new_users.route('/reserve>', methods=['POST'])
+@pushes.route('/reserve', methods=['POST'])
 def reserve():
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']
@@ -29,12 +29,12 @@ def reserve():
             else:
                 server_reservation_table[request.json['slot_id']] = 1
                 server_seen_nonces[request.json['nonce']] = jsonify({'success' : True,
-                                                                    'blinded_deletion_sign': ust_sign(request.json['blinded_deletion_nonce'])
+                                                                    'blinded_deletion_sign': ust_sign(request.json['blinded_deletion_nonce']),
                                                                     'blinded_sign' : ust_sign(request.json['blinded_nonce'])}), 200
                 return server_seen_nonces[request.json['nonce']]
             
 
-@new_users.route('/push>', methods=['POST'])
+@pushes.route('/push', methods=['POST'])
 def push():
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']

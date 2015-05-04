@@ -7,7 +7,7 @@ from .. import traceless_crypto
 def hello_world():
     return "hello world"
 
-@new_users.route('/initiate>', methods=['POST'])
+@new_conversations.route('/initiate', methods=['POST'])
 def initiate():
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']
@@ -25,7 +25,7 @@ def initiate():
             server_seen_nonces[request.json['nonce']] = jsonify({'blinded_sign' : ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
 
-@new_users.route('/update_new_conversations_table/<int:client_new_conversations_table_ptr>', methods=['POST'])
+@new_conversations.route('/update_new_conversations_table/<int:client_new_conversations_table_ptr>', methods=['POST'])
 def update_user_table(client_new_conversations_table_ptr):
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']

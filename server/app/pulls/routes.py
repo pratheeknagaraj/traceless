@@ -39,8 +39,7 @@ def delete():
         server_deletion_nonces = app.jinja_env.globals['server_deletion_nonces']
         server_deletion_nonces_lock = app.jinja_env.globals['server_deletion_nonces_lock']
         with server_deletion_nonces_lock:
-            if request.json['deletion_nonce'] in server_deletion_nonces 
-                    or not deletion_verify(request.json['deletion_nonce'], request.json['deletion_signature'], request.json['slot_id']):
+            if request.json['deletion_nonce'] in server_deletion_nonces or not deletion_verify(request.json['deletion_nonce'], request.json['deletion_signature'], request.json['slot_id']):
                 abort(400)
             else:
                 server_deletion_nonces[request.json['deletion_nonce']] = 1
