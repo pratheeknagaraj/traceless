@@ -1,3 +1,10 @@
+	'/server'
+		REQUEST
+
+		ACK
+			server_pk_n
+			server_pk_e
+
 	'/reserve'
 		REQUEST
 			nonce

@@ -4,6 +4,10 @@ import requests
 import sys
 import time
 import thread
+import json
+
+from util import *
+from UST import *
 
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_PSS
@@ -11,16 +15,27 @@ from Crypto.Hash import SHA
 from Crypto import Random
 
 # Server Data
-server_ip = '0.0.0.0'
+SERVER_URL = 'http://localhost:5000'
 
 # Errors
-ERR_INVALID_USERNAME = "Invalid_Username"
+ERROR = "Error"
 
 # Constants
 SUCCESS = "Success"
 FAILED = "Failed"
 TRUE = "True"
 FALSE = "False"
+
+# Routes
+SERVER                          = 'server'
+SUBSCRIBE                       = 'subscribe'
+PUSH                            = 'push'
+PULL                            = 'pull'
+UPDATE_USER_TABLE               = 'update_user_table'
+UPDATE_NEW_CONVERSATION_TABLE   = 'update_new_conversation_table'
+INITIATE                        = 'initiate'
+DELETE                          = 'delete'
+RESERVE                         = 'reserve'
 
 # Wait Times
 NEW_CLIENT_WAIT         = 1.000     # Wait 1 second
@@ -49,10 +64,16 @@ class Client:
 
         print "INPUT USERNAME:", username
         self.username = username
+        self.connect_server()
         self.subscribe()
 
         # Upon successfully suscribing begin updates
         self.updates()
+
+    def connect_server(self):
+        r = send_request(SERVER, {})
+        self.server_pk_n = r['server_pk_n']
+        self.server_pk_e = r['server_pk_e']
 
     def updates(self):
         try:
@@ -96,19 +117,31 @@ class Client:
             print "\t", i
 
     def subscribe(self):
-        self.rsa = RSA.generate(2048)
-        self.pub = self.rsa.exportKey()
-        args = {"Type": "Subscribe", 
-                "PublicKey": self.pub,
-                "Username": self.username}
+        self.rsa = RSA_gen()
+        self.n, self.e, self.d = RSA_keys(self.rsa)
+
+        self.rsa_sign = RSA_gen()
+        self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
+
+        self.ust = UST(self.server_pk_n, self.server_pk_e)
+
+        args = {"blinded_nonce":    self.ust.blinded_nonce, 
+                "client_username":  self.username,
+                "client_pk_n":      self.n, 
+                "client_pk_e":      self.e,
+                "client_sign_pk_n": self.n_sign,
+                "client_sign_pk_e": self.e_sign}
         print self.rsa, pub
         
         success = False
-        while !success:
-            r = send_request(args)
-            if r['status'] == ERR_INVALID_USERNAME:
+        while not success:
+            r = send_request(SUBSCRIBE, args)
+            if r == ERROR:
                 print "Username is taken, please try again"
                 sys.exit(0)
+                blinded_sign = r['blinded_sign']
+                user = r['user']
+                self.server_pk = r['server_pk']
             if r['status'] == SUCCESS:
                 self.user_id = r['user_id']
                 self.last_id_seen = r['last_id_seen']
@@ -126,7 +159,7 @@ class Client:
                     self.last_id_seen += 1
                     time.sleep(NEW_CLIENT_WAIT_SHORT)
                     continue
-            else r['status'] == FAILED:
+            elif r['status'] == FAILED:
                 print "ERROR: Client Update failed"
 
             time.sleep(NEW_CLIENT_WAIT)
@@ -164,19 +197,24 @@ class Client:
     def collect_messages(self):
     	pass
 
-def send_request(args, reply):
-    r = requests.get(SERVER_URL, params=args)
-    if(r.status_code != 200):
-        raise Exception(r.text)
-    return r.text.splitlines()
+    def ust_update():
+        new_nonce = random.getrandbits(2048)
+        blinded_new_hash
 
 
-def gen_rsa():
+
+def send_request(route, args):
+    response = requests.post(SERVER_URL + "/" + route, data=json.dumps(args))
+    if(response.status_code != 200):
+        raise Exception(response.text)
+        return ERROR
+    return response.text
+
+def RSA_gen():
     return RSA.generate(2048)
 
-def RSA_keygen():
-    key = RSA.generate(2048)
-    return key.n, key.e, key.d #returns RSA key object, n, e (both public) and secret key d
+def RSA_keys(rsa):
+    return rsa.n, rsa.e, rsa.d #returns RSA key object, n, e (both public) and secret key d
 
 def RSA_encrypt(message, n, e): #takes in message, n, and e
     current_key = RSA.construct((n,e))
@@ -202,23 +240,6 @@ def PKCS1_verify(signature, message, n, e):
     verifier = PKCS1_PSS.new(public_key)
     return verifier.verify(h, signature)
 
-# ----- Extended Euclidean Algorithm ----
-## From Wikibooks - https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Extended_Euclidean_algorithm
-def egcd(a, b):
-    if a == 0:
-        return (b, 0, 1)
-    else:
-        g, y, x = egcd(b % a, a)
-        return (g, x - (b // a) * y, y)
- 
-def modinv(a, m):
-    gcd, x, y = egcd(a, m)
-    if gcd != 1:
-        return None  # modular inverse does not exist
-    else:
-        return x % m
-# ----- End ------
-
 def H(m):
     """
    return hash (256-bit integer) of string m, as long integer.
@@ -227,11 +248,11 @@ def H(m):
     m = str(m)
     return int(hashlib.sha256(m).hexdigest(),16)
 
-if len(sys.argv) < 2:
-    print "ERROR: Please start client with an input username"
-    sys.exit(0)
+#if len(sys.argv) < 2:
+#    print "ERROR: Please start client with an input username"
+#    sys.exit(0)
 
-client = Client()
-username_in = sys.argv[1]
-client.main(username_in)
+#client = Client()
+#username_in = sys.argv[1]
+#client.main(username_in)
  
