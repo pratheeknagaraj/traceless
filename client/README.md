@@ -1,6 +1,6 @@
 	'/server'
 		REQUEST
-
+			
 		ACK
 			server_pk_n
 			server_pk_e
@@ -33,17 +33,20 @@
 		REQUEST
 			blinded_nonce
 			client_username
-			client_pk
-			client_sign_pk
+			client_pk_n
+			client_pk_e
+			client_sign_pk_n
+			client_sign_pk_e
 
 		ACK
 			blinded_sign
 			user
 				client_user_id
 				client_username
-				client_pk
-				client_sign_pk
-			server_pk
+				client_pk_n
+				client_pk_e
+				client_sign_pk_n
+				client_sign_pk_e
 
 	'/update_user_table'
 		REQUEST

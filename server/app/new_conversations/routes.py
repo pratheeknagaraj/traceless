@@ -26,7 +26,7 @@ def initiate():
             server_seen_nonces[request.json['nonce']] = jsonify({'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
 
-@new_conversations.route('/update_new_conversations_table/<int:client_new_conversations_table_ptr>', methods=['POST'])
+@new_conversations.route('/update_new_conversations_table', methods=['POST'])
 def update_user_table():
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']

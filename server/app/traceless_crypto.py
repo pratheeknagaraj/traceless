@@ -11,8 +11,6 @@ def deletion_verify(nonce, signature, slot_id):
 
 def ust_sign(blinded_nonce):
     n, d = app.jinja_env.globals['server_sk']
-    print blinded_nonce
-    print n, d
     return power(blinded_nonce, d, n)
 
 def power(x, y, z):

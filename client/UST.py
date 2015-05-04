@@ -1,4 +1,5 @@
 import random
+from traceless_math import *
 
 class UST:
 
@@ -8,30 +9,26 @@ class UST:
         self.nonce = None
         self.signature = None
 
-        self.new_nonce = random.getrandbits(2048)
-        self.blinded_nonce = blind(start_nonce)
-
     def blind(self,nonce):
-        message, self.mod_inv = self.inverse(nonce)
-        return power(message, self.server_pk_e, self.server_pk_n) * \
-               power(nonce, self.server_pk_e, self.server_pk_n)
+        R, self.mod_inv = self.inverse()
+        return (power(R, self.server_pk_e, self.server_pk_n) * nonce) % self.server_pk_n
 
     def unblind(self,blinded_sign):
         return (self.mod_inv * blinded_sign) % self.server_pk_n
 
     def prepare(self):
-        self.new_nonce = random.getrandbits(2048)
-        self.blinded_nonce = blind(self.new_nonce)
+        self.new_nonce = random.getrandbits(256)
+        self.blinded_nonce = self.blind(self.new_nonce)
 
     def receive(self, blinded_sign):
         (self.nonce, self.signature) = (self.new_nonce, self.unblind(blinded_sign))
 
-    def inverse(n):
-        message = None
+    def inverse(self):
+        R = None
         mod_inv = None
         while True:
-            message = random.getrandbits(2048)
-            mod_inv = modinv(message, n)
+            R = random.getrandbits(128)
+            mod_inv = modinv(R, self.server_pk_n)
             if mod_inv != None:
                 break
-        return message, mod_inv
+        return R, mod_inv

@@ -62,13 +62,14 @@ class Client:
         self.user_table = {}
         self.rsa = None
 
-        print "INPUT USERNAME:", username
         self.username = username
         self.connect_server()
         self.subscribe()
 
         # Upon successfully suscribing begin updates
         self.updates()
+
+        self.client_input()
 
     def connect_server(self):
         r = send_request(SERVER, {})
@@ -77,9 +78,8 @@ class Client:
 
     def updates(self):
         try:
-            thread.start_new_thread(client_update)
-            thread.start_new_thread(conversation_update)
-            thread.start_new_thread(client_input)
+            thread.start_new_thread(self.client_update, ())
+            thread.start_new_thread(self.conversation_update, ())
         except:
             print "ERRROR: unable to start client threads"
             print "FATAL: client unable to update"
@@ -124,34 +124,54 @@ class Client:
         self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
 
         self.ust = UST(self.server_pk_n, self.server_pk_e)
+        self.ust.prepare()
 
-        args = {"blinded_nonce":    self.ust.blinded_nonce, 
-                "client_username":  self.username,
-                "client_pk_n":      self.n, 
-                "client_pk_e":      self.e,
-                "client_sign_pk_n": self.n_sign,
-                "client_sign_pk_e": self.e_sign}
-        print self.rsa, pub
+        args = {"blinded_nonce"     :  self.ust.blinded_nonce, 
+                "client_username"   :  self.username,
+                "client_pk_n"       :  self.n, 
+                "client_pk_e"       :  self.e,
+                "client_sign_pk_n"  :  self.n_sign,
+                "client_sign_pk_e"  :  self.e_sign}
         
-        success = False
-        while not success:
-            r = send_request(SUBSCRIBE, args)
-            if r == ERROR:
-                print "Username is taken, please try again"
-                sys.exit(0)
-                blinded_sign = r['blinded_sign']
-                user = r['user']
-                self.server_pk = r['server_pk']
-            if r['status'] == SUCCESS:
-                self.user_id = r['user_id']
-                self.last_id_seen = r['last_id_seen']
+        r = send_request(SUBSCRIBE, args)
+
+        if r == ERROR:
+            print "ERROR: could not subscribe"
+            sys.exit(0)
+
+        self.ust.receive(r['blinded_sign'])
+
+        user = r['user']
+
+        if user['client_pk_n'] == self.n and user['client_pk_e'] == self.e \
+            and user['client_sign_pk_n'] == self.n_sign \
+            and user['client_sign_pk_e'] == self.e_sign:
+            pass
+        else:
+            print "Username is taken, please try again"
+            sys.exit(0)
+
+        self.user_id = user['client_user_id']
+        self.user_table_ptr = 0
+
         return
 
     def client_update(self):
         while True:
-            args = {"Type": "ClientUpdate", 
-                    "LastIdSeen": self.last_id_seen}
-            r = send_request(args)
+
+            self.ust.prepare()
+
+            args = {"nonce"                 :  self.ust.nonce,
+                    "signature"             :  self.ust.signature,
+                    "blinded_nonce"         :  self.ust.blinded_nonce, 
+                    "client_user_table_ptr" :  self.user_table_ptr}
+
+            r = send_request(UPDATE_USER_TABLE, args)
+            
+            self.ust.receive(r['blinded_sign'])
+
+            new_users = r['new_users']
+
             if r['status'] == SUCCESS:
                 if r['new_client'] == TRUE:
                     data = r['new_client_data']    
@@ -204,11 +224,12 @@ class Client:
 
 
 def send_request(route, args):
-    response = requests.post(SERVER_URL + "/" + route, data=json.dumps(args))
-    if(response.status_code != 200):
+    headers = {'content-type': 'application/json'}
+    response = requests.post(SERVER_URL + "/" + route, headers=headers, data=json.dumps(args))
+    if not (200 <= response.status_code < 300):
         raise Exception(response.text)
         return ERROR
-    return response.text
+    return json.loads(response.text)
 
 def RSA_gen():
     return RSA.generate(2048)
@@ -216,28 +237,24 @@ def RSA_gen():
 def RSA_keys(rsa):
     return rsa.n, rsa.e, rsa.d #returns RSA key object, n, e (both public) and secret key d
 
-def RSA_encrypt(message, n, e): #takes in message, n, and e
-    current_key = RSA.construct((n,e))
+def RSA_encrypt(message, rsa): #takes in message, n, and e
     k = random.getrandbits(2048)
-    return current_key.encrypt(message, k)
+    return rsa.encrypt(message, k)
 
-def RSA_decrypt(message, n, e, d):
-    key = RSA.construct((n,e,d))
-    return key.decrypt(message)
+def RSA_decrypt(message, rsa):
+    return rsa.decrypt(message)
 
-def PKCS1_sign(message, n, e, d):
-    key = RSA.construct((n,e,d))
+def PKCS1_sign(message, rsa):
     h = SHA.new()
     h.update(message)
-    signer = PKCS1_PSS.new(key)
+    signer = PKCS1_PSS.new(rsa)
     signature = signer.sign(h)
     return signature
 
-def PKCS1_verify(signature, message, n, e):
+def PKCS1_verify(signature, message, rsa):
     h = SHA.new()
     h.update(message)
-    public_key = RSA.construct((n,e))
-    verifier = PKCS1_PSS.new(public_key)
+    verifier = PKCS1_PSS.new(rsa)
     return verifier.verify(h, signature)
 
 def H(m):
@@ -248,11 +265,10 @@ def H(m):
     m = str(m)
     return int(hashlib.sha256(m).hexdigest(),16)
 
-#if len(sys.argv) < 2:
-#    print "ERROR: Please start client with an input username"
-#    sys.exit(0)
+if len(sys.argv) < 2:
+    print "ERROR: Please start client with an input username"
+    sys.exit(0)
 
-#client = Client()
-#username_in = sys.argv[1]
-#client.main(username_in)
- 
+client = Client()
+username_in = sys.argv[1]
+client.main(username_in)

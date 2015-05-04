@@ -20,7 +20,7 @@ def server():
     return jsonify({'server_pk_n' : n, 'server_pk_e' : e})
 
 @new_users.route('/subscribe', methods=['POST'])
-def suscribe():
+def subscribe():
     user_table = app.jinja_env.globals['server_user_table']
     user_table_lock = app.jinja_env.globals['server_user_table_lock']
     with user_table_lock:
@@ -38,12 +38,12 @@ def suscribe():
                 'client_sign_pk_e' : request.json['client_sign_pk_e']
             }
             user_table.append(user)
-            print "hello"
+            print user
             server_usernames[request.json['client_username']] = jsonify({'user' : user,
                                                                         'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 201
             return server_usernames[request.json['client_username']]
 
-@new_users.route('/update_user_table/', methods=['POST'])
+@new_users.route('/update_user_table', methods=['POST'])
 def update_user_table():
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']
