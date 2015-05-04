@@ -45,7 +45,7 @@ class Client:
     def main(self,username):
 
         self.user_table = {}
-        self.max_block = 
+        self.rsa = None
 
         print "INPUT USERNAME:", username
         self.username = username
@@ -94,9 +94,6 @@ class Client:
         usernames = sorted(self.user_table.keys())
         for i in username:
             print "\t", i
-
-    def gen_rsa(self):
-        self.rsa
 
     def subscribe(self):
         self.rsa = RSA.generate(2048)
@@ -173,6 +170,9 @@ def send_request(args, reply):
         raise Exception(r.text)
     return r.text.splitlines()
 
+
+def gen_rsa():
+    return RSA.generate(2048)
 
 def RSA_keygen():
     key = RSA.generate(2048)
