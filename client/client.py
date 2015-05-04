@@ -27,7 +27,6 @@ NEW_CLIENT_WAIT         = 1.000     # Wait 1 second
 NEW_CLIENT_WAIT_SHORT   = 0.100     # Wait 0.1 second
 NEW_CONVERSATION_WAIT   = 0.500     # Wait half a second
 
-<<<<<<< HEAD
 class User:
 
     def __init__(self,username,user_id,public_key):
@@ -46,6 +45,7 @@ class Client:
     def main(self,username):
 
         self.user_table = {}
+        self.max_block = 
 
         print "INPUT USERNAME:", username
         self.username = username
@@ -73,14 +73,30 @@ class Client:
         parts = cmd.split(' ', 1)
         cmd_type = parts[0]
         cmd_args = parts[1]
+
         if cmd_type == "1":
             print "Local User Table"
             self.print_user_table() 
+        elif cmd_type == "2":
+            self.init_conversation(cmd_args)
+        elif cmd_type == "3":
+            split = cmd_args.split(' ', 1)
+            username = split[0]
+            message = split[1] 
+            self.send_message(username, message)
+        elif cmd_type == "H":
+            print "1: 1 - Print Local User Table"
+            print "2: 2 <username> - Start New Conversation with 'username'"
+            print "3: 3 <username> <message> - Send 'message' to 'username'"
+
 
     def print_user_table(self):
         usernames = sorted(self.user_table.keys())
         for i in username:
             print "\t", i
+
+    def gen_rsa(self):
+        self.rsa
 
     def subscribe(self):
         self.rsa = RSA.generate(2048)
@@ -119,13 +135,23 @@ class Client:
             time.sleep(NEW_CLIENT_WAIT)
     	return
 
-    def init_conversation(self):
+    def init_conversation(self, username):
+
+        # Reserve Read/Write blocks
+        while True:
+            args = {"Type": "ReserveSlot"}
+
+
+        args = {"Type": "InitConversation",
+                "Username": username}
+
     	pass
 
     def conversation_update(self):
     	pass
 
-    def create_message():
+    def send_message(self, username, message):
+        pass
 
     def read_message(signature, ciphertext, other_user_public_key, my_key): #assumes other_user_public_key is tuple of form (n,e), my_key is of form (n,e,d)
         checksum_n = other_user_public_key[0]
@@ -137,12 +163,6 @@ class Client:
         d = my_key[2]
         plaintext = RSA_decrypt(ciphertext, n, e, d)
         return plaintext
-
-    def write_message()
-    	pass
-
-    def read_message(self):
-    	pass
 
     def collect_messages(self):
     	pass
