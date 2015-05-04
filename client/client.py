@@ -153,12 +153,12 @@ class Client:
     def read_message(signature, ciphertext, other_user_public_key, my_key): #assumes other_user_public_key is tuple of form (n,e), my_key is of form (n,e,d)
         checksum_n = other_user_public_key[0]
         checksum_e = other_user_public_key[1]
-        if PKCS1_verify(signature, message, checksum_n, checksum_e) != True:
-            return 'Message could not be verified'
         n = my_key[0]
         e = my_key[1]
         d = my_key[2]
         plaintext = RSA_decrypt(ciphertext, n, e, d)
+        if PKCS1_verify(signature, plaintext, checksum_n, checksum_e) != True:
+            return 'Message could not be verified'
         return plaintext
 
     def collect_messages(self):
