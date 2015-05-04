@@ -7,27 +7,27 @@ from Crypto.Hash import SHA
 from Crypto import Random
 
 def main():
-    pass
+	pass
 
 def suscribe():
-    pass
+	pass
 
 def client_update():
-    pass
+	pass
 
 def init_conversation():
-    pass
+	pass
 
 def conversation_update():
-    pass
+	pass
 
 ''' You may want to change up these headers, don't know how you want to implement'''
 
 def create_message():
 
-def read_message(signature, ciphertext, server_public_key, my_key): #assumes server_public_key is tuple of form (n,e), my_key is of form (n,e,d)
-    checksum_n = server_public_key[0]
-    checksum_e = server_public_key[1]
+def read_message(signature, ciphertext, other_user_public_key, my_key): #assumes other_user_public_key is tuple of form (n,e), my_key is of form (n,e,d)
+    checksum_n = other_user_public_key[0]
+    checksum_e = other_user_public_key[1]
     if PKCS1_verify(signature, message, checksum_n, checksum_e) != True:
         return 'Message could not be verified'
     n = my_key[0]
@@ -35,18 +35,19 @@ def read_message(signature, ciphertext, server_public_key, my_key): #assumes ser
     d = my_key[2]
     plaintext = RSA_decrypt(ciphertext, n, e, d)
     return plaintext
-    
+
+def write_message()
 def send_message():
     pass
 
 def collect_messages():
-    pass
+	pass
 
 def timer(method):
-    pass
+	pass
 
 def send_request():
-    pass
+	pass
 
 
 def RSA_keygen():
@@ -76,67 +77,6 @@ def PKCS1_verify(signature, message, n, e):
     public_key = RSA.construct((n,e))
     verifier = PKCS1_PSS.new(public_key)
     return verifier.verify(h, signature)
-
-# ----- Extended Euclidean Algorithm ----
-## From Wikibooks - https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Extended_Euclidean_algorithm
-def egcd(a, b):
-    if a == 0:
-        return (b, 0, 1)
-    else:
-        g, y, x = egcd(b % a, a)
-        return (g, x - (b // a) * y, y)
- 
-def modinv(a, m):
-    gcd, x, y = egcd(a, m)
-    if gcd != 1:
-        return None  # modular inverse does not exist
-    else:
-        return x % m
-# ----- End ------
-
-def H(m):
-    """
-   return hash (256-bit integer) of string m, as long integer.
-   If the input is an integer, treat it as a string.
-   """
-    m = str(m)
-    return int(hashlib.sha256(m).hexdigest(),16)
-
-
- import hashlib
-import random
-import requests
-
-def main():
-	pass
-
-def suscribe():
-	pass
-
-def client_update():
-	pass
-
-def init_conversation():
-	pass
-
-def conversation_update():
-	pass
-
-''' You may want to change up these headers, don't know how you want to implement'''
-def send_message():
-	pass
-
-def read_message():
-	pass
-
-def collect_messages():
-	pass
-
-def timer(method):
-	pass
-
-def send_request():
-	pass
 
 # ----- Extended Euclidean Algorithm ----
 ## From Wikibooks - https://en.wikibooks.org/wiki/Algorithm_Implementation/Mathematics/Extended_Euclidean_algorithm
