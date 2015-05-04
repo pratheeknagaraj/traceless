@@ -14,7 +14,7 @@ def hello_world():
 def echo():
     return jsonify(request.json)
 
-@new_users.route('/server', methods=['GET'])
+@new_users.route('/server', methods=['POST'])
 def server():
     n, e = app.jinja_env.globals['server_pk']
     return jsonify({'server_pk_n' : n, 'server_pk_e' : e})
