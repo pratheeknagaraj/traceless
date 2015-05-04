@@ -26,7 +26,7 @@ def initiate():
             return server_seen_nonces[request.json['nonce']]
 
 @new_conversations.route('/update_new_conversations_table/<int:client_new_conversations_table_ptr>', methods=['POST'])
-def update_user_table(client_new_conversations_table_ptr):
+def update_user_table():
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']
     with server_seen_nonces_lock:
@@ -39,7 +39,7 @@ def update_user_table(client_new_conversations_table_ptr):
         server_new_conversations_table = app.jinja_env.globals['server_new_conversations_table']
         server_new_conversations_table_lock = app.jinja_env.globals['server_new_conversations_table_lock']
         with server_new_conversations_table_lock:
-            new_conversations = sever_new_conversations_table[client_new_conversations_table_ptr:]
+            new_conversations = sever_new_conversations_table[request.json['client_new_conversations_table_ptr']:]
             server_seen_nonces[request.json['nonce']] = jsonify({'new_conversations' : new_conversations,
                                                                 'blinded_sign' : ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]

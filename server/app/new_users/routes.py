@@ -31,8 +31,8 @@ def suscribe():
                                                                         'server_pk' : app.jinja_env.globals['server_pk']}), 201
             return server_usernames[request.json['client_username']]
 
-@new_users.route('/update_user_table/<int:client_user_table_ptr>', methods=['POST'])
-def update_user_table(client_user_table_ptr):
+@new_users.route('/update_user_table/', methods=['POST'])
+def update_user_table():
     server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']
     with server_seen_nonces_lock:
@@ -45,7 +45,7 @@ def update_user_table(client_user_table_ptr):
         user_table = current_app.jinja_env.globals['server_user_table']
         user_table_lock = current_app.jinja_env.globals['server_user_table_lock']
         with user_table_lock:
-            new_users = user_table[client_user_table_ptr:]
+            new_users = user_table[request.json['client_user_table_ptr']:]
             server_seen_nonces[request.json['nonce']] = jsonify({'new_users' : new_users, 
                                                                 'blinded_sign' : ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
