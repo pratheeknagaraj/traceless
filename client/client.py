@@ -6,8 +6,8 @@ import time
 import thread
 import json
 
-from util import *
 from UST import *
+from user import *
 
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_PSS
@@ -38,22 +38,8 @@ DELETE                          = 'delete'
 RESERVE                         = 'reserve'
 
 # Wait Times
-NEW_CLIENT_WAIT         = 1.000     # Wait 1 second
-NEW_CLIENT_WAIT_SHORT   = 0.100     # Wait 0.1 second
-NEW_CONVERSATION_WAIT   = 0.500     # Wait half a second
-
-class User:
-
-    def __init__(self,username,user_id,public_key):
-        self.username = username
-        self.user_id = user_id
-        self.public_key = public_key
-
-    def __str__(self):
-        return self.username
-
-    def __repr__(self):
-        return self.username 
+NEW_CLIENT_WAIT         = 3.000     # Wait 3 seconds
+NEW_CONVERSATION_WAIT   = 1.000     # Wait 1 second
 
 class Client:
 
@@ -88,33 +74,35 @@ class Client:
     def client_input(self):
         while True:
             cmd = raw_input("Please enter a command: ")
-            handle_input(cmd)
+            self.handle_input(cmd)
 
     def handle_input(self, cmd):
         parts = cmd.split(' ', 1)
         cmd_type = parts[0]
-        cmd_args = parts[1]
 
         if cmd_type == "1":
-            print "Local User Table"
             self.print_user_table() 
         elif cmd_type == "2":
+            cmd_args = parts[1]
             self.init_conversation(cmd_args)
         elif cmd_type == "3":
+            cmd_args = parts[1]
             split = cmd_args.split(' ', 1)
             username = split[0]
             message = split[1] 
             self.send_message(username, message)
         elif cmd_type == "H":
-            print "1: 1 - Print Local User Table"
-            print "2: 2 <username> - Start New Conversation with 'username'"
-            print "3: 3 <username> <message> - Send 'message' to 'username'"
+            print "  1: 1 - Print Local User Table"
+            print "  2: 2 <username> - Start Conversation with 'username'"
+            print "  3: 3 <username> <message> - Send 'message' to 'username'"
 
 
-    def print_user_table(self):
+    def print_user_table(self): 
+        print "=== Local User Table ==="
         usernames = sorted(self.user_table.keys())
-        for i in username:
-            print "\t", i
+        for username in usernames:
+            print "  %20s" % username
+        print "\n",
 
     def subscribe(self):
         self.rsa = RSA_gen()
@@ -172,15 +160,18 @@ class Client:
 
             new_users = r['new_users']
 
-            if r['status'] == SUCCESS:
-                if r['new_client'] == TRUE:
-                    data = r['new_client_data']    
-                    self.user_table = User(data['username'],data['user_id'],data['public_key'])
-                    self.last_id_seen += 1
-                    time.sleep(NEW_CLIENT_WAIT_SHORT)
-                    continue
-            elif r['status'] == FAILED:
-                print "ERROR: Client Update failed"
+            for new_user in new_users:
+                username = new_user['client_username']
+                if username not in self.user_table:
+                    user_id = new_user['client_user_id']
+                    pk_n, pk_e, pk_sign_n, pk_sign_e = (new_user['client_pk_n'],
+                                                       new_user['client_pk_e'],
+                                                       new_user['client_sign_pk_n'],
+                                                       new_user['client_sign_pk_e'])
+                    user = User(username,user_id,pk_n,pk_e,pk_sign_n,pk_sign_e)
+                    self.user_table[username] = user
+
+                    self.user_table_ptr = user_id
 
             time.sleep(NEW_CLIENT_WAIT)
     	return

@@ -38,7 +38,7 @@ def subscribe():
                 'client_sign_pk_e' : request.json['client_sign_pk_e']
             }
             user_table.append(user)
-            print user
+            print "NEW USER:", request.json['client_username']
             server_usernames[request.json['client_username']] = jsonify({'user' : user,
                                                                         'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 201
             return server_usernames[request.json['client_username']]
@@ -50,7 +50,7 @@ def update_user_table():
     with server_seen_nonces_lock:
         if not request.json or not traceless_crypto.verify(request.json['nonce'], request.json['signature']):
             abort(400)
-        
+
         if request.json['nonce'] in server_seen_nonces:
             return server_seen_nonces[request.json['nonce']]
 
