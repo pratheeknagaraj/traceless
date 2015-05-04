@@ -1,5 +1,6 @@
 from . import new_users
-from flask import jsonify, current_app
+from flask import jsonify, request, abort
+from flask import current_app as app
 import os
 from .. import traceless_crypto
 
