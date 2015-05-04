@@ -5,6 +5,8 @@ import sys
 import time
 import thread
 import json
+import binascii
+import math
 
 from UST import *
 from user import *
@@ -191,8 +193,30 @@ class Client:
     def conversation_update(self):
     	pass
 
-    def send_message(self, username, message):
-        pass
+    def send_message(self, username, text, block_id, next_block, ND, ND_signed):
+        length = len(text)
+        if len(text) > 256:
+            print "message too long"
+            return
+        msg = text.ljust(256)
+        x = bin(int(binascii.hexlify(msg), 16))
+        new_text = int(x,2)
+        P = (new_text << 2432) + (next_block << 2304) + (ND << 2048) + (ND_signed)
+        self.ust.prepare()
+        h = SHA.new()
+        h.update(P)
+        signer = PKCS1_PSS.new(self.rsa)
+        signature = signer.sign(h)
+        cipher = signature + message
+        args = {"nonce":    self.ust.nonce,
+                "signature":    blinded_sign,
+                "blinded_nonce":    self.ust.blinded_nonce,
+                "slot_id":  block_id,
+                "message":  cipher}
+        r = send_request(PUSH, args)
+        if r['status'] == FAILED:
+            print 'ERROR: could not push message'
+        return
 
     def read_message(signature, ciphertext, other_user_public_key, my_key): #assumes other_user_public_key is tuple of form (n,e), my_key is of form (n,e,d)
         checksum_n = other_user_public_key[0]
@@ -205,8 +229,23 @@ class Client:
             return 'Message could not be verified'
         return plaintext
 
-    def collect_messages(self):
-    	pass
+    def collect_messages(self, ciphertext, username): #assumes already pulled from server
+        plaintext = RSA_decrypt(ciphertext, self.n, self.e, self.d)
+        signature = plaintext >> 4480
+        other_user = user['username']
+        n = user.n_sign
+        e = user.e_sign
+        rsa_key = RSA.construct((n,e))
+        if PKCS1_verify(signature, plaintext, rsa_key) != True:
+            print "message could not be verified"
+            return
+        a = ciphertext - (signature << 4480)
+        msg_retrieve = a >> 2432
+        nb = (a >> 2304) - (msg_retrieve << 128)
+        nd = (a >> 2048) - (msg_retrieve << 384) - (nb << 256)
+        signed_nd = a - (msg_retrieve << 2432) - (nb_final << 2176) - (nd_temp << 2048)
+        text = binascii.unhexlify('%x' % msg_retrieve)
+    	return text, nb, nd, signed_nd
 
     def ust_update():
         new_nonce = random.getrandbits(2048)
