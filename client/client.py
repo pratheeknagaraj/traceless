@@ -7,6 +7,7 @@ import thread
 import json
 import binascii
 import math
+import base64
 
 from UST import *
 from user import *
@@ -15,6 +16,8 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_PSS
 from Crypto.Hash import SHA
 from Crypto import Random
+from Crypto.PublicKey import ElGamal
+from Crypto.Util.number import GCD
 
 # Server Data
 SERVER_URL = 'http://localhost:5000'
@@ -104,12 +107,14 @@ class Client:
         print "=== Local User Table ==="
         usernames = sorted(self.user_table.keys())
         for username in usernames:
-            print "  %20s" % username
+            print "  %-24s" % username
         print "\n",
 
     def subscribe(self):
+        print "Subscrbing please wait..."
         self.rsa = RSA_gen()
         self.n, self.e, self.d = RSA_keys(self.rsa)
+        self.ElGkey = ElGamal.generate(256, Random.new().read)
 
         self.rsa_sign = RSA_gen()
         self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
@@ -218,22 +223,21 @@ class Client:
         P = (my_username << 512) + (recipient_username << 256) + \
             (read_slot_id << 128) + write_slot_id
 
-        sign = PKCS1_sign(str(P), self.rsa_sign)
+        #sign = PKCS1_sign(str(P), self.rsa_sign)
+        
+        signature = ElG_sign(str(P), self.ElGkey)
         rsa_recipient = RSA_gen_user(self.user_table[username])
-        M = RSA_encrypt( str(P) + sign, rsa_recipient)
-        print M
-        print str(P)
-        print sign
-
+        M = str(signature[0]) + "," + str(signature[1]) + "," + str(P)
+        enc_M = RSA_encrypt( M, rsa_recipient)[0]
+ 
         self.ust.prepare()
-
+        
         args = {"nonce"                     :  self.ust.nonce,
                 "signature"                 :  self.ust.signature,
                 "blinded_nonce"             :  self.ust.blinded_nonce, 
-                "message"                   :  M}
+                "message"                   :  enc_M}
 
         r = send_request(INITIATE, args)
-
         self.ust.receive(r['blinded_sign'])
         return 
 
@@ -241,7 +245,6 @@ class Client:
     	pass
 
     def send_message(self, username, text, slot_id, next_block, ND, ND_signed):
-        length = len(text)
         if len(text) > 256:
             print "ERROR: message too long"
             return
@@ -251,11 +254,12 @@ class Client:
         new_text = int(x,2)
         P = (new_text << 2432) + (next_block << 2304) + (ND << 2048) + (ND_signed)
         self.ust.prepare()
-        h = SHA.new()
-        h.update(P)
-        signer = PKCS1_PSS.new(self.rsa)
-        signature = signer.sign(h)
-        cipher = signature + message
+        # h = SHA.new()
+        # h.update(str(P))
+        # signer = PKCS1_PSS.new(self.rsa)
+        # signature = signer.sign(h)
+        signature = ElG_sign(P, self.ElGkey)
+        cipher = signature + P
         other_user = self.user_table[username]
         rsa_key = RSA_gen_user(other_user)
         ciphertext = RSA_encrypt(cipher, rsa_key)
@@ -311,8 +315,6 @@ def RSA_gen():
     return RSA.generate(2048)
 
 def RSA_gen_user(user):
-    print user.pk_n, user.pk_e
-    print type(user.pk_n), type(user.pk_e)
     return RSA.construct((user.pk_n,user.pk_e))
 
 def RSA_keys(rsa):
@@ -320,10 +322,10 @@ def RSA_keys(rsa):
 
 def RSA_encrypt(message, rsa): #takes in message, n, and e
     k = random.getrandbits(2048)
-    return rsa.encrypt(message, k)
+    return base64.encodestring(rsa.encrypt(message, k)[0])
 
 def RSA_decrypt(message, rsa):
-    return rsa.decrypt(message)
+    return rsa.decrypt(base64.decodestring(message))
 
 def PKCS1_sign(message, rsa):
     h = SHA.new()
@@ -331,6 +333,15 @@ def PKCS1_sign(message, rsa):
     signer = PKCS1_PSS.new(rsa)
     signature = signer.sign(h)
     return signature
+
+def ElG_sign(message,key):
+    h = SHA.new(message).digest()
+    while 1:
+        k = Random.random.StrongRandom().randint(1,key.p-1)
+        if GCD(k,key.p-1)==1: 
+            break
+    sig = key.sign(h,k)
+    return sig
 
 def PKCS1_verify(signature, message, rsa):
     h = SHA.new()
