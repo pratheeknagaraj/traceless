@@ -47,6 +47,7 @@ class Client:
 
         self.user_table = {}
         self.rsa = None
+        self.rsa_sign = None
 
         self.username = username
         self.connect_server()
@@ -176,17 +177,56 @@ class Client:
             time.sleep(NEW_CLIENT_WAIT)
     	return
 
+    def reserve_slot(self):
+        while True:
+            self.ust.prepare()
+
+            slot_id = random.getrandbits(128) 
+            nonce = (slot_id << 128) + random.getrandbits(128)
+            ust_delete = UST(self.server_pk_n,self.server_pk_e)
+            ust_delete.prepare(nonce)
+
+            args = {"nonce"                     :  self.ust.nonce,
+                    "signature"                 :  self.ust.signature,
+                    "blinded_nonce"             :  self.ust.blinded_nonce, 
+                    "slot_id"                   :  slot_id,
+                    "blinded_deletion_nonce"    :  ust_delete.blinded_nonce}
+
+            r = send_request(RESERVE, args)
+
+            self.ust.receive(r['blinded_sign'])
+
+            if r['success'] == True:
+                ust_delete.receive(r['blinded_deletion_sign'])
+                sig = ust_delete.signature
+                return slot_id, sig
+
     def init_conversation(self, username):
+        if username == self.username:
+            print "ERROR: Please enter a username that is not your own"
 
         # Reserve Read/Write blocks
-        while True:
-            args = {"Type": "ReserveSlot"}
+        read_block_id, read_block_sig = self.reserve_slot()
+        write_block_id, write_block_sig = self.reserve_slot()
 
+        P = (long(self.username.ljust(256))) << 384) + (long(username.ljust(username)) << 256) + \
+            (read_block_id << 128) + write_block_id
 
-        args = {"Type": "InitConversation",
-                "Username": username}
+        sign = PKCS1_sign(P, self.rsa_sign)
+        rsa_recipient = RSA_gen_user(self.user_table[username])
+        M = RSA_encrypt( (P << 512) + sign, rsa_recipient)
 
-    	pass
+        self.ust.prepare()
+
+        args = {"nonce"                     :  self.ust.nonce,
+                "signature"                 :  self.ust.signature,
+                "blinded_nonce"             :  self.ust.blinded_nonce, 
+                "message"                   :  M}
+
+        r = send_request(INITIATE, args)
+
+        self.ust.receive(r['blinded_sign'])
+        return 
 
     def conversation_update(self):
     	pass
@@ -224,6 +264,9 @@ def send_request(route, args):
 
 def RSA_gen():
     return RSA.generate(2048)
+
+def RSA_gen_user(user):
+    return RSA.construct(user.pk_n,user.pk_e)
 
 def RSA_keys(rsa):
     return rsa.n, rsa.e, rsa.d #returns RSA key object, n, e (both public) and secret key d

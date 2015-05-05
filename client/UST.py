@@ -16,8 +16,11 @@ class UST:
     def unblind(self,blinded_sign):
         return (self.mod_inv * blinded_sign) % self.server_pk_n
 
-    def prepare(self):
-        self.new_nonce = random.getrandbits(256)
+    def prepare(self,nonce=None):
+        if nonce == None:
+            self.new_nonce = random.getrandbits(256)
+        else:
+            self.new_nonce = nonce
         self.blinded_nonce = self.blind(self.new_nonce)
 
     def receive(self, blinded_sign):

@@ -15,8 +15,8 @@
 
 		ACK
 			success (True, False)
-			blinded_deletion_sign
 			blinded_sign
+			blinded_deletion_sign
 
 	'/push'
 		REQUEST
