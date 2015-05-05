@@ -23,7 +23,11 @@ def initiate():
         server_new_conversations_table_lock = app.jinja_env.globals['server_new_conversations_table_lock']
         with server_new_conversations_table_lock:
             print "INIT:", request.json['message']
-            server_new_conversations_table.append(request.json['message'])
+            conversation = {
+                'conversation_id' : len(server_new_conversations_table),
+                'message' : request.json['message']
+            }
+            server_new_conversations_table.append(conversation)
             server_seen_nonces[request.json['nonce']] = jsonify({'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
 

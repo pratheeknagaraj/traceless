@@ -44,13 +44,17 @@ RESERVE                         = 'reserve'
 
 # Wait Times
 NEW_CLIENT_WAIT         = 3.000     # Wait 3 seconds
-NEW_CONVERSATION_WAIT   = 1.000     # Wait 1 second
+NEW_CONVERSATION_WAIT   = 3.000     # Wait 1 second
 
 class Client:
 
     def main(self,username):
 
         self.user_table = {}
+        self.conversations = {}
+        self.conversation_buffer = []
+        self.conversation_lock = False
+
         self.rsa = None
         self.rsa_sign = None
 
@@ -112,11 +116,11 @@ class Client:
 
     def subscribe(self):
         print "Subscrbing please wait..."
-        self.rsa = RSA_gen()
+        self.rsa = RSA_gen(4096)
         self.n, self.e, self.d = RSA_keys(self.rsa)
-        self.ElGkey = ElGamal.generate(256, Random.new().read)
+        #self.ElGkey = ElGamal.generate(256, Random.new().read)
 
-        self.rsa_sign = RSA_gen()
+        self.rsa_sign = RSA_gen(1024)
         self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
 
         self.ust = UST(self.server_pk_n, self.server_pk_e)
@@ -149,6 +153,7 @@ class Client:
 
         self.user_id = user['client_user_id']
         self.user_table_ptr = 0
+        self.client_new_conversations_ptr = 0
 
         return
 
@@ -208,8 +213,8 @@ class Client:
                 sig = ust_delete.signature
                 return slot_id, sig
 
-    def init_conversation(self, username):
-        if username == self.username:
+    def init_conversation(self, recipient):
+        if recipient == self.username:
             print "ERROR: Please enter a username that is not your own"
 
         # Reserve Read/Write slot
@@ -218,16 +223,21 @@ class Client:
 
 
         my_username = int(bin(int(binascii.hexlify(self.username.ljust(256)), 16)),2)
-        recipient_username = int(bin(int(binascii.hexlify(self.username.ljust(256)), 16)),2)
+        recipient_username = int(bin(int(binascii.hexlify(recipient.ljust(256)), 16)),2)
 
-        P = (my_username << 512) + (recipient_username << 256) + \
-            (read_slot_id << 128) + write_slot_id
+        P = (write_slot_sig << 768) + \
+            (my_username << 512) +  \
+            (recipient_username << 256) + \
+            (read_slot_id << 128) + \
+            write_slot_id
 
         #sign = PKCS1_sign(str(P), self.rsa_sign)
         
-        signature = ElG_sign(str(P), self.ElGkey)
-        rsa_recipient = RSA_gen_user(self.user_table[username])
-        M = str(signature[0]) + "," + str(signature[1]) + "," + str(P)
+        #signature = ElG_sign(str(P), self.ElGkey)
+        sign = PKCS1_sign(str(P), self.rsa_sign)
+        M = str(sign) + "*****" + str(P)
+
+        rsa_recipient = RSA_gen_user(self.user_table[recipient])
         enc_M = RSA_encrypt( M, rsa_recipient)[0]
  
         self.ust.prepare()
@@ -239,10 +249,87 @@ class Client:
 
         r = send_request(INITIATE, args)
         self.ust.receive(r['blinded_sign'])
+
+        conversation_obj = Conversation(self.user_table[self.username],
+                                        self.user_table[recipient],
+                                        read_slot_id,
+                                        write_slot_id,
+                                        read_slot_sig)
+
+        while self.conversation_lock:
+            continue
+        self.conversation_lock = True
+        self.conversations[sender] = conversation_obj
+        self.conversation_buffer.append(sender)
+        self.conversation_lock = False
+
         return 
 
     def conversation_update(self):
-    	pass
+
+        while True:
+
+            self.ust.prepare()
+
+            args = {"nonce"                        :  self.ust.nonce,
+                    "signature"                    :  self.ust.signature,
+                    "blinded_nonce"                :  self.ust.blinded_nonce, 
+                    "client_new_conversations_ptr" :  self.client_new_conversations_ptr}
+
+            r = send_request(UPDATE_NEW_CONVERSATION_TABLE, args)
+            
+            self.ust.receive(r['blinded_sign'])
+
+            new_conversations = r['new_conversations']
+
+            for conversation in new_conversations:
+                conversation_id = conversation['conversation_id']
+                enc_M = conversation['message']
+
+                self.client_new_conversations_ptr = conversation_id
+
+                M = RSA_decrypt(message, self.rsa)
+
+                parts = M.split("*****")
+                if len(parts) < 2:
+                    # Not a valid decryption,
+                    # Message was not intended for me
+                    continue
+
+                sign = str(parts[0])
+                P = str(parts[1])
+
+                write_slot_id
+
+                sender = (P >> 512)
+                recipient = (P - (sender << 512)) >> 256
+
+                if recipient != self.username:
+                    # Should not reach here
+                    # otherwise continue since this is not for us
+                    continue
+
+                # First verify this is actually from sender
+                rsa_sign_sender = RSA_gen_user_sign(self.user_table[sender])
+
+                if PKCS1_verify(sign, P, rsa_sign_sender):
+                    write_slot_id = (P - (sender << 512) - (recipient << 256)) >> 128
+                    read_slot_id = P - (sender << 512) - (recipient << 256) - (write_slot_id << 128)
+
+                    conversation_obj = Conversation(self.user_table[username],
+                                                    self.user_table[sender],
+                                                    read_slot_id,
+                                                    write_slot_id)
+
+                    while self.conversation_lock:
+                        continue
+                    self.conversation_lock = True
+                    self.conversations[sender] = conversation_obj
+                    self.conversation_buffer.append(sender)
+                    self.conversation_lock = False
+
+            time.sleep(NEW_CONVERSATION_WAIT)
+        return
 
     def send_message(self, username, text, slot_id, next_block, ND, ND_signed):
         if len(text) > 256:
@@ -311,11 +398,14 @@ def send_request(route, args):
         return ERROR
     return json.loads(response.text)
 
-def RSA_gen():
-    return RSA.generate(2048)
+def RSA_gen(size=4096):
+    return RSA.generate(size)
 
 def RSA_gen_user(user):
     return RSA.construct((user.pk_n,user.pk_e))
+
+def RSA_gen_user_sign(user):
+    return RSA.construct((user.pk_sign_n,user.pk_sign_e))
 
 def RSA_keys(rsa):
     return rsa.n, rsa.e, rsa.d #returns RSA key object, n, e (both public) and secret key d
@@ -332,7 +422,7 @@ def PKCS1_sign(message, rsa):
     h.update(message)
     signer = PKCS1_PSS.new(rsa)
     signature = signer.sign(h)
-    return signature
+    return base64.encodestring(signature)
 
 def ElG_sign(message,key):
     h = SHA.new(message).digest()
@@ -345,7 +435,7 @@ def ElG_sign(message,key):
 
 def PKCS1_verify(signature, message, rsa):
     h = SHA.new()
-    h.update(message)
+    h.update(base64.decodestring(message))
     verifier = PKCS1_PSS.new(rsa)
     return verifier.verify(h, signature)
 
@@ -356,7 +446,7 @@ def H(m):
    """
     m = str(m)
     return int(hashlib.sha256(m).hexdigest(),16)
-
+'''
 if len(sys.argv) < 2:
     print "ERROR: Please start client with an input username"
     sys.exit(0)
@@ -364,3 +454,4 @@ if len(sys.argv) < 2:
 client = Client()
 username_in = sys.argv[1]
 client.main(username_in)
+'''
