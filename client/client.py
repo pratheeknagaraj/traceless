@@ -240,7 +240,8 @@ class Client:
     def conversation_update(self):
     	pass
 
-    def send_message(self, username, text, block_id, next_block, ND, ND_signed):
+    def send_message(self, username, text, slot_id, next_block, ND, ND_signed):
+        length = len(text)
         if len(text) > 256:
             print "ERROR: message too long"
             return
@@ -255,11 +256,14 @@ class Client:
         signer = PKCS1_PSS.new(self.rsa)
         signature = signer.sign(h)
         cipher = signature + message
+        other_user = self.user_table[username]
+        rsa_key = RSA_gen_user(other_user)
+        ciphertext = RSA_encrypt(cipher, rsa_key)
         args = {"nonce":    self.ust.nonce,
                 "signature":    blinded_sign,
                 "blinded_nonce":    self.ust.blinded_nonce,
-                "slot_id":  block_id,
-                "message":  cipher}
+                "slot_id":  slot_id,
+                "message":  ciphertext}
         r = send_request(PUSH, args)
         if r['status'] == FAILED:
             print 'ERROR: could not push message'
@@ -277,7 +281,7 @@ class Client:
         return plaintext
 
     def collect_messages(self, ciphertext, username): #assumes already pulled from server
-        plaintext = RSA_decrypt(ciphertext, self.n, self.e, self.d)
+        plaintext = RSA_decrypt(ciphertext, self.rsa)
         signature = plaintext >> 4480
         other_user = user['username']
         n = user.n_sign
