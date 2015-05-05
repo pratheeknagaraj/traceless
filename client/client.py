@@ -207,16 +207,23 @@ class Client:
         if username == self.username:
             print "ERROR: Please enter a username that is not your own"
 
-        # Reserve Read/Write blocks
-        read_block_id, read_block_sig = self.reserve_slot()
-        write_block_id, write_block_sig = self.reserve_slot()
+        # Reserve Read/Write slot
+        read_slot_id, read_slot_sig = self.reserve_slot()
+        write_slot_id, write_slot_sig = self.reserve_slot()
 
-        P = (long(self.username.ljust(256))) << 384) + (long(username.ljust(username)) << 256) + \
-            (read_block_id << 128) + write_block_id
 
-        sign = PKCS1_sign(P, self.rsa_sign)
+        my_username = int(bin(int(binascii.hexlify(self.username.ljust(256)), 16)),2)
+        recipient_username = int(bin(int(binascii.hexlify(self.username.ljust(256)), 16)),2)
+
+        P = (my_username << 512) + (recipient_username << 256) + \
+            (read_slot_id << 128) + write_slot_id
+
+        sign = PKCS1_sign(str(P), self.rsa_sign)
         rsa_recipient = RSA_gen_user(self.user_table[username])
-        M = RSA_encrypt( (P << 512) + sign, rsa_recipient)
+        M = RSA_encrypt( str(P) + sign, rsa_recipient)
+        print M
+        print str(P)
+        print sign
 
         self.ust.prepare()
 
@@ -234,10 +241,10 @@ class Client:
     	pass
 
     def send_message(self, username, text, block_id, next_block, ND, ND_signed):
-        length = len(text)
         if len(text) > 256:
-            print "message too long"
+            print "ERROR: message too long"
             return
+
         msg = text.ljust(256)
         x = bin(int(binascii.hexlify(msg), 16))
         new_text = int(x,2)
@@ -287,11 +294,6 @@ class Client:
         text = binascii.unhexlify('%x' % msg_retrieve)
     	return text, nb, nd, signed_nd
 
-    def ust_update():
-        new_nonce = random.getrandbits(2048)
-        blinded_new_hash
-
-
 
 def send_request(route, args):
     headers = {'content-type': 'application/json'}
@@ -305,7 +307,9 @@ def RSA_gen():
     return RSA.generate(2048)
 
 def RSA_gen_user(user):
-    return RSA.construct(user.pk_n,user.pk_e)
+    print user.pk_n, user.pk_e
+    print type(user.pk_n), type(user.pk_e)
+    return RSA.construct((user.pk_n,user.pk_e))
 
 def RSA_keys(rsa):
     return rsa.n, rsa.e, rsa.d #returns RSA key object, n, e (both public) and secret key d
