@@ -110,6 +110,7 @@ class Client:
     def subscribe(self):
         self.rsa = RSA_gen()
         self.n, self.e, self.d = RSA_keys(self.rsa)
+        self.ElGkey = ElGamal.generate(1024, Random.new().read)
 
         self.rsa_sign = RSA_gen()
         self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
@@ -235,7 +236,7 @@ class Client:
 
     def send_message(self, username, text, slot_id, next_block, ND, ND_signed):
         length = len(text)
-        if len(text) > 256:
+        if length > 256:
             print "message too long"
             return
         msg = text.ljust(256)
@@ -243,11 +244,12 @@ class Client:
         new_text = int(x,2)
         P = (new_text << 2432) + (next_block << 2304) + (ND << 2048) + (ND_signed)
         self.ust.prepare()
-        h = SHA.new()
-        h.update(P)
-        signer = PKCS1_PSS.new(self.rsa)
-        signature = signer.sign(h)
-        cipher = signature + message
+        # h = SHA.new()
+        # h.update(str(P))
+        # signer = PKCS1_PSS.new(self.rsa)
+        # signature = signer.sign(h)
+        signature = ElG_sign(P, self.ElGkey)
+        cipher = signature + P
         other_user = self.user_table[username]
         rsa_key = RSA_gen_user(other_user)
         ciphertext = RSA_encrypt(cipher, rsa_key)
@@ -326,6 +328,15 @@ def PKCS1_sign(message, rsa):
     signer = PKCS1_PSS.new(rsa)
     signature = signer.sign(h)
     return signature
+
+def ElG_sign(message,key):
+    h = SHA.new(message).digest()
+    while 1:
+        k = random.StrongRandom().randint(1,key.p-1)
+        if GCD(k,key.p-1)==1: 
+            break
+    sig = key.sign(h,k)
+    return sig
 
 def PKCS1_verify(signature, message, rsa):
     h = SHA.new()
