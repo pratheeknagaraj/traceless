@@ -254,21 +254,11 @@ class Client:
             write_slot_id
 
         sign = PKCS1_sign(str(P), self.rsa_sign)
-        #sign = ElG_sign(str(P), self.ElGkey)
-        #print len(M)
-        #print sign.strip(), P, type(sign), type(P)
-        #M = "HELLO"
         rsa_recipient = RSA_gen_user(self.user_table[recipient])
         sign_enc =RSA_encrypt(sign, rsa_recipient)
         P_enc = RSA_encrypt(str(P), rsa_recipient)
         enc_M = sign_enc + "*****" + P_enc
-        # print "sign: ", sign
-        # print "length of sign is:", len(sign)
-        # print "P: ", str(P)
-        # print "length of P is:", len(str(bin(P)))
-        # print "encrypting.."
-        #enc_M = RSA_encrypt( M, rsa_recipient)
- 
+
         self.ust_lock.acquire()
         self.ust.prepare()
         
@@ -314,67 +304,42 @@ class Client:
 
             new_conversations = r['new_conversations']
 
-            print new_conversations
             for conversation in new_conversations:
                 conversation_id = conversation['conversation_id']
                 enc_M = conversation['message']
 
                 self.client_new_conversations_table_ptr = conversation_id
                 ciphertext = enc_M.split("*****")
-                #print "enc_sign = ", ciphertext[0]
-                #print "enc_P = ", ciphertext[1]
                 sign = RSA_decrypt(ciphertext[0], self.rsa)
                 P = RSA_decrypt(ciphertext[1], self.rsa)
-                #M = RSA_decrypt(enc_M, self.rsa)
-                # print "decrypting.."
-                # print "sign: ", sign
-                print "P: ", P
-                #parts = M.split("****")
-                #print "SPLITTED", parts
-                #if len(parts) != 2:
-                    # Not a valid decryption,
-                    # Message was not intended for me
-                #    continue
 
-                #print "BYTING"
+                try:
+                    b = bin(int(P))[2:] 
+                    b2 = (768-len(b))*'0' + b
+                    sender = (''.join(chr(int(b2[i:i+8], 2)) for i in xrange(0, 256, 8))).replace('\x00','')
+                    recipient = (''.join(chr(int(b2[i:i+8], 2)) for i in xrange(256, 512, 8))).replace('\x00','')
+                    write_slot_id = int(b2[512:640],2)
+                    read_slot_id = int(b2[640:],2)
 
-                #sign = str(parts[0])
-                #P = str(parts[1])
-
-                bit_P = bitarray()
-                bit_P.fromstring(str(P))
-
-                #write_slot_sig  = bit_P[0:1024].tobytes()
-                #write_nonce     = bit_P[1024:1280].tobytes()
-                sender          = bit_P[1280:1536].tobytes()
-                recipient       = bit_P[1536:1792].tobytes()
-                write_slot_id   = bit_P[1792:1920].tobytes()
-                read_slot_id    = bit_P[1920:2048].tobytes()
-                print "sender:", sender
-                print "recipient", recipient
-
-                print sender, recipient, write_slot_id, read_slot_id
-
-                if recipient != self.username:
-                    # Should not reach here
-                    # otherwise continue since this is not for us
-                    continue
-
-                # First verify this is actually from sender
-                rsa_sign_sender = RSA_gen_user_sign(self.user_table[sender])
-
-                if PKCS1_verify(sign, P, rsa_sign_sender):
-                
-                    conversation_obj = Conversation(self.user_table[username],
-                                                    self.user_table[sender],
-                                                    read_slot_id,
-                                                    write_slot_id)
-
-                    while self.conversation_lock:
+                    if recipient != self.username:
                         continue
-                    self.conversation_lock.acquire()
-                    self.conversations[sender] = conversation_obj
-                    self.conversation_lock.release()
+
+                    rsa_sign_sender = RSA_gen_user_sign(self.user_table[sender])
+
+                    if PKCS1_verify(sign, P, rsa_sign_sender):
+                        print "VERIFIED!", recipient
+                        conversation_obj = Conversation(self.user_table[username],
+                                                        self.user_table[sender],
+                                                        read_slot_id,
+                                                        write_slot_id)
+
+                        self.conversation_lock.acquire()
+                        self.conversations[sender] = conversation_obj
+                        self.conversation_lock.release()
+                        print "\nConversation started with: ", sender
+
+                except:
+                    continue
 
             time.sleep(NEW_CONVERSATION_WAIT)
         return
