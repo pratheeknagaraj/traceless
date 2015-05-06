@@ -9,7 +9,7 @@ import binascii
 import math
 import base64
 import threading
-import bitarray
+from bitarray import *
 
 from UST import *
 from user import *
@@ -61,6 +61,7 @@ class Client:
 
         self.rsa = None
         self.rsa_sign = None
+        self.ElGkey = None
 
         self.username = username
         self.connect_server()
@@ -122,9 +123,9 @@ class Client:
         print "Subscribing please wait..."
         self.rsa = RSA_gen(4096)
         self.n, self.e, self.d = RSA_keys(self.rsa)
-        #self.ElGkey = ElGamal.generate(256, Random.new().read)
+        self.ElGkey = ElGamal.generate(256, Random.new().read)
 
-        self.rsa_sign = RSA_gen(256)
+        self.rsa_sign = RSA_gen(1024)
         self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
 
         self.ust = UST(self.server_pk_n, self.server_pk_e)
@@ -194,7 +195,7 @@ class Client:
                     self.user_table_ptr = user_id
 
             time.sleep(NEW_CLIENT_WAIT)
-    	return
+        return
 
     def reserve_slot(self):
         while True:
@@ -231,27 +232,43 @@ class Client:
         write_slot_id, write_nonce, write_slot_sig = self.reserve_slot()
 
 
-        my_username = int(bin(int(binascii.hexlify(self.username.ljust(256)), 16)),2)
-        recipient_username = int(bin(int(binascii.hexlify(recipient.ljust(256)), 16)),2)
+        #my_username = int(bin(int(binascii.hexlify(self.username.ljust(256)), 16)),2)
 
-        P = (write_slot_sig << 1024) + \
-            (write_nonce << 768) + \
-            (my_username << 512) +  \
-            (recipient_username << 256) + \
+        x = bin(int(binascii.hexlify(self.username), 16))
+        my_username = x.ljust(256)
+
+        y = bin(int(binascii.hexlify(recipient), 16))
+        recipient_username = y.ljust(256)
+        #recipient_username = int(bin(int(binascii.hexlify(recipient.ljust(256)), 16)),2)
+
+        # P = (write_slot_sig << 1024) + \
+        #     (write_nonce << 768) + \
+        #     (my_username << 512) +  \
+        #     (recipient_username << 256) + \
+        #     (read_slot_id << 128) + \
+        #     write_slot_id
+        
+        P = (int(my_username, 2) << 512) +  \
+            (int(recipient_username,2) << 256) + \
             (read_slot_id << 128) + \
             write_slot_id
-        
+
         sign = PKCS1_sign(str(P), self.rsa_sign)
-        M = sign + "****" + str(P)
-        #print "ENC PREP: ", M
-        #M = str(random.getrandbits(1700))
-        print "MES ENC: ", M
-
+        #sign = ElG_sign(str(P), self.ElGkey)
+        #print len(M)
+        #print sign.strip(), P, type(sign), type(P)
+        #M = "HELLO"
         rsa_recipient = RSA_gen_user(self.user_table[recipient])
-        #print "RSA REC:", rsa_recipient.n, rsa_recipient.e
-        enc_M = RSA_encrypt( M, rsa_recipient)
-        #print "MES SEND: ", enc_M
-
+        sign_enc =RSA_encrypt(sign, rsa_recipient)
+        P_enc = RSA_encrypt(str(P), rsa_recipient)
+        enc_M = sign_enc + "*****" + P_enc
+        # print "sign: ", sign
+        # print "length of sign is:", len(sign)
+        # print "P: ", str(P)
+        # print "length of P is:", len(str(bin(P)))
+        # print "encrypting.."
+        #enc_M = RSA_encrypt( M, rsa_recipient)
+ 
         self.ust_lock.acquire()
         self.ust.prepare()
         
@@ -281,6 +298,7 @@ class Client:
     def conversation_update(self):
 
         while True:
+            #print "HERE NOW"
             self.ust_lock.acquire()
             self.ust.prepare()
 
@@ -296,40 +314,44 @@ class Client:
 
             new_conversations = r['new_conversations']
 
+            print new_conversations
             for conversation in new_conversations:
                 conversation_id = conversation['conversation_id']
                 enc_M = conversation['message']
 
                 self.client_new_conversations_table_ptr = conversation_id
-
-                #print "MES REC", enc_M
-                #print "RSA CHECK:", RSA_keys(self.rsa)
-                M = RSA_decrypt(enc_M, self.rsa)
-                #print "DEC REC:", M
-                
-                print "M DEC: ", M
-                parts = M.split("****")
-
-                if len(parts) != 2:
+                ciphertext = enc_M.split("*****")
+                #print "enc_sign = ", ciphertext[0]
+                #print "enc_P = ", ciphertext[1]
+                sign = RSA_decrypt(ciphertext[0], self.rsa)
+                P = RSA_decrypt(ciphertext[1], self.rsa)
+                #M = RSA_decrypt(enc_M, self.rsa)
+                # print "decrypting.."
+                # print "sign: ", sign
+                print "P: ", P
+                #parts = M.split("****")
+                #print "SPLITTED", parts
+                #if len(parts) != 2:
                     # Not a valid decryption,
                     # Message was not intended for me
-                    continue
+                #    continue
 
-                print "BYTING"
-                print parts
+                #print "BYTING"
 
-                sign = str(parts[0])
-                P = str(parts[1])
+                #sign = str(parts[0])
+                #P = str(parts[1])
 
                 bit_P = bitarray()
-                bit_P.fromstring(P)
+                bit_P.fromstring(str(P))
 
-                write_slot_sig  = bit_P[0:1024].tobytes()
-                write_nonce     = bit_P[1024:1280].tobytes()
+                #write_slot_sig  = bit_P[0:1024].tobytes()
+                #write_nonce     = bit_P[1024:1280].tobytes()
                 sender          = bit_P[1280:1536].tobytes()
                 recipient       = bit_P[1536:1792].tobytes()
                 write_slot_id   = bit_P[1792:1920].tobytes()
                 read_slot_id    = bit_P[1920:2048].tobytes()
+                print "sender:", sender
+                print "recipient", recipient
 
                 print sender, recipient, write_slot_id, read_slot_id
 
@@ -418,7 +440,7 @@ class Client:
         nd = (a >> 2048) - (msg_retrieve << 384) - (nb << 256)
         signed_nd = a - (msg_retrieve << 2432) - (nb_final << 2176) - (nd_temp << 2048)
         text = binascii.unhexlify('%x' % msg_retrieve)
-    	return text, nb, nd, signed_nd
+        return text, nb, nd, signed_nd
 
 
 def send_request(route, args):
@@ -457,9 +479,9 @@ def PKCS1_sign(message, rsa):
 
 def PKCS1_verify(signature, message, rsa):
     h = SHA.new()
-    h.update(message)
+    h.update(base64.decodestring(message))
     verifier = PKCS1_PSS.new(rsa)
-    return verifier.verify(h, base64.decodestring(signature))
+    return verifier.verify(h, signature)
 
 def ElG_sign(message,key):
     h = SHA.new(message).digest()
