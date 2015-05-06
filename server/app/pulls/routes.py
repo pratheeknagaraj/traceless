@@ -22,7 +22,10 @@ def pull():
         server_messages_table = app.jinja_env.globals['server_messages_table']
         server_messages_table_lock = app.jinja_env.globals['server_messages_table_lock']
         with server_messages_table_lock:
-            server_seen_nonces[request.json['nonce']] = jsonify({'messages' : server_messages_table[request.json['slot_id']],
+            response = []
+            if request.json['slot_id'] in server_messages_table:
+                response = server_messages_table[request.json['slot_id']]
+            server_seen_nonces[request.json['nonce']] = jsonify({'messages' : response,
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
 

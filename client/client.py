@@ -47,7 +47,8 @@ RESERVE                         = 'reserve'
 
 # Wait Times
 NEW_CLIENT_WAIT         = 3.000     # Wait 3 seconds
-NEW_CONVERSATION_WAIT   = 3.000     # Wait 1 second
+NEW_CONVERSATION_WAIT   = 3.000     # Wait 3 second
+NEW_MESSAGE_WAIT        = 1.000     # Wait 1 second
 
 class Client:
 
@@ -81,6 +82,7 @@ class Client:
         try:
             thread.start_new_thread(self.client_update, ())
             thread.start_new_thread(self.conversation_update, ())
+            thread.start_new_thread(self.message_update, ())
         except:
             print "ERRROR: unable to start client threads"
             print "FATAL: client unable to update"
@@ -88,7 +90,7 @@ class Client:
 
     def client_input(self):
         while True:
-            cmd = raw_input("Please enter a command: ")
+            cmd = raw_input("[Please enter your next command]\n>> ")
             self.handle_input(cmd)
 
     def handle_input(self, cmd):
@@ -110,7 +112,6 @@ class Client:
             print "  1: 1 - Print Local User Table"
             print "  2: 2 <username> - Start Conversation with 'username'"
             print "  3: 3 <username> <message> - Send 'message' to 'username'"
-
 
     def print_user_table(self): 
         print "=== Local User Table ==="
@@ -258,7 +259,6 @@ class Client:
         sign_enc =RSA_encrypt(sign, rsa_recipient)
         P_enc = RSA_encrypt(str(P), rsa_recipient)
         enc_M = sign_enc + "*****" + P_enc
-
         self.ust_lock.acquire()
         self.ust.prepare()
         
@@ -274,10 +274,7 @@ class Client:
         conversation_obj = Conversation(self.user_table[self.username],
                                         self.user_table[recipient],
                                         read_slot_id,
-                                        write_slot_id,
-                                        read_nonce,
-                                        read_slot_sig)
-
+                                        write_slot_id)
 
         self.conversation_lock.acquire()
         self.conversations[recipient] = conversation_obj
@@ -288,7 +285,6 @@ class Client:
     def conversation_update(self):
 
         while True:
-            #print "HERE NOW"
             self.ust_lock.acquire()
             self.ust.prepare()
 
@@ -306,9 +302,10 @@ class Client:
 
             for conversation in new_conversations:
                 conversation_id = conversation['conversation_id']
+
                 enc_M = conversation['message']
 
-                self.client_new_conversations_table_ptr = conversation_id
+                self.client_new_conversations_table_ptr = conversation_id + 1
                 ciphertext = enc_M.split("*****")
                 sign = RSA_decrypt(ciphertext[0], self.rsa)
                 P = RSA_decrypt(ciphertext[1], self.rsa)
@@ -326,56 +323,73 @@ class Client:
 
                     rsa_sign_sender = RSA_gen_user_sign(self.user_table[sender])
 
-                    if PKCS1_verify(sign, P, rsa_sign_sender):
-                        print "VERIFIED!", recipient
-                        conversation_obj = Conversation(self.user_table[username],
-                                                        self.user_table[sender],
-                                                        read_slot_id,
-                                                        write_slot_id)
-
-                        self.conversation_lock.acquire()
-                        self.conversations[sender] = conversation_obj
-                        self.conversation_lock.release()
-                        print "\nConversation started with: ", sender
-
+                    # TODO, fix verification, assume no spoofs atm
+                    #if PKCS1_verify(sign, str(P), rsa_sign_sender):
+                    #    print "VERIFIED!", recipient
+                    conversation_obj = Conversation(self.user_table[self.username],
+                                                    self.user_table[sender],
+                                                    read_slot_id,
+                                                    write_slot_id)
+       
+                    self.conversation_lock.acquire()
+                    self.conversations[sender] = conversation_obj
+                    self.conversation_lock.release()
+                    print "\nConversation started with: ", sender, "\n>> "
                 except:
                     continue
 
             time.sleep(NEW_CONVERSATION_WAIT)
         return
 
-    def send_message(self, username, text, slot_id, next_block, ND, ND_signed):
+    def send_message(self, username, text): #, slot_id, next_block, ND, ND_signed):
         if len(text) > 256:
-            print "ERROR: message too long"
+            print "\nERROR: message too long\n>> "
             return
 
-        msg = text.ljust(256)
+        if username not in self.user_table:
+            print "\nERROR: user " + username + " does not exist\n>> "
+            return
+
+        if username not in self.conversations:
+            print "\nERROR: please start conversation with " + username + " first\n>> "
+            return
+
+        conversation = self.conversations[username]
+        write_slot_id = conversation.write_slot_id
+
+        new_write_slot_id, new_write_nonce, new_write_slot_sig = self.reserve_slot()
+
+        msg = text.ljust(128)
         x = bin(int(binascii.hexlify(msg), 16))
         new_text = int(x,2)
-        P = (new_text << 2432) + (next_block << 2304) + (ND << 2048) + (ND_signed)
+        
+        #P = (new_text << 2432) + (next_block << 2304) + (ND << 2048) + (ND_signed)
+        
+        P = (new_text << 128) + new_write_slot_id  
+
+        print new_write_slot_id
+
         self.ust_lock.acquire()
         self.ust.prepare()
-        # h = SHA.new()
-        # h.update(str(P))
-        # signer = PKCS1_PSS.new(self.rsa)
-        # signature = signer.sign(h)
-        signature = ElG_sign(P, self.ElGkey)
-        cipher = signature + P
-        other_user = self.user_table[username]
-        rsa_key = RSA_gen_user(other_user)
-        ciphertext = RSA_encrypt(cipher, rsa_key)
-        args = {"nonce":    self.ust.nonce,
-                "signature":    blinded_sign,
-                "blinded_nonce":    self.ust.blinded_nonce,
-                "slot_id":  slot_id,
-                "message":  ciphertext}
+        signature = PKCS1_sign(str(P), self.rsa_sign)
+        recipient = self.user_table[username]
+        rsa_recipient = RSA_gen_user(recipient)
+
+        ciphertext = RSA_encrypt(signature, rsa_recipient) + \
+                     "*****" + RSA_encrypt(str(P), rsa_recipient)
+
+        args = {"nonce"                     :  self.ust.nonce,
+                "signature"                 :  self.ust.signature,
+                "blinded_nonce"             :  self.ust.blinded_nonce,
+                "slot_id"                   :  write_slot_id,
+                "message"                   :  ciphertext}
+
         r = send_request(PUSH, args)
+        self.ust.receive(r['blinded_sign'])
+        self.ust_lock.release()
 
-
-        # TODO... alot, receive, etc.
-
-        if r['status'] == FAILED:
-            print 'ERROR: could not push message'
+        conversation.add_write_text(text)
+        print "\n" + conversation.get_conversation() + "\n>> "
         return
 
     def read_message(signature, ciphertext, other_user_public_key, my_key): #assumes other_user_public_key is tuple of form (n,e), my_key is of form (n,e,d)
@@ -407,6 +421,49 @@ class Client:
         text = binascii.unhexlify('%x' % msg_retrieve)
         return text, nb, nd, signed_nd
 
+    def message_update(self):
+        while True:
+            for sender, conversation in self.conversations.items():
+                read_slot_id = conversation.read_slot_id
+
+                self.ust_lock.acquire()
+                self.ust.prepare()
+
+                args = {"nonce"              :  self.ust.nonce,
+                        "signature"          :  self.ust.signature,
+                        "blinded_nonce"      :  self.ust.blinded_nonce, 
+                        "slot_id"            :  read_slot_id}
+
+                r = send_request(PULL, args)
+                
+                self.ust.receive(r['blinded_sign'])
+                self.ust_lock.release()
+
+                messages = r['messages']
+
+                for message in messages:
+                    
+                    try:
+                        ciphertext = message.split("*****")
+                        sign = RSA_decrypt(ciphertext[0], self.rsa)
+                        P = RSA_decrypt(ciphertext[1], self.rsa)
+
+                        b = bin(int(P))[2:]
+
+                        new_read_slot_id = int(b[-128:],2)
+                        rest = '0' + str(b[:-128])          # Yeah... don't worry about this...
+                        text = (''.join(chr(int(rest[i:i+8], 2)) for i in xrange(0, len(rest), 8))).strip()
+                        # Need to verify message sender
+                        # Can use just username
+
+                        conversation.read_slot_id = new_read_slot_id
+                        conversation.add_read_text(text)
+                        print "\n" + conversation.get_conversation() + "\n>> "
+                    except:
+                        continue
+
+            time.sleep(NEW_MESSAGE_WAIT)
+        return
 
 def send_request(route, args):
     headers = {'content-type': 'application/json'}
