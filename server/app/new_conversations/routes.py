@@ -28,6 +28,7 @@ def initiate():
                 'message' : request.json['message']
             }
             server_new_conversations_table.append(conversation)
+            print "Convesations Table: ", server_new_conversations_table
             server_seen_nonces[request.json['nonce']] = jsonify({'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
 

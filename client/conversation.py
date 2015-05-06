@@ -1,3 +1,5 @@
+from colors import *
+
 class Conversation:
 
 	def __init__(self, my_user, other_user, read_slot_id, write_slot_id, 
@@ -33,7 +35,12 @@ class Conversation:
 		for message in self.messages:
 			user = message[0]
 			text = message[1]
-			out += "\t" + user.username + " - " + text + "\n"
+			if user == self.my_user:
+				out += "\t%25s - %s\n" % (colorstr2(user.username,'BOLD','LIGHT_RED_BG'),
+												colorstr(text,'LIGHT_RED_BG'))
+			else:
+				out += "\t%25s - %s\n" % (colorstr2(user.username,'BOLD','LIGHT_BLUE_BG'),
+												colorstr(text,'LIGHT_BLUE_BG'))
 		return out
 
 	def __repr__(self):

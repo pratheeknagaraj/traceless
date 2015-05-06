@@ -53,5 +53,6 @@ def push():
                 server_messages_table[request.json['slot_id']].append(request.json['message'])
             else:
                 server_messages_table[request.json['slot_id']] = [request.json['message']]
+            print "Messages Table: ", server_messages_table
             server_seen_nonces[request.json['nonce']] = jsonify({'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
