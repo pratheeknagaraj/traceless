@@ -8,9 +8,12 @@ import json
 import binascii
 import math
 import base64
+import threading
+import bitarray
 
 from UST import *
 from user import *
+from conversation import *
 
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_PSS
@@ -37,7 +40,7 @@ SUBSCRIBE                       = 'subscribe'
 PUSH                            = 'push'
 PULL                            = 'pull'
 UPDATE_USER_TABLE               = 'update_user_table'
-UPDATE_NEW_CONVERSATION_TABLE   = 'update_new_conversation_table'
+UPDATE_NEW_CONVERSATION_TABLE   = 'update_new_conversations_table'
 INITIATE                        = 'initiate'
 DELETE                          = 'delete'
 RESERVE                         = 'reserve'
@@ -52,8 +55,9 @@ class Client:
 
         self.user_table = {}
         self.conversations = {}
-        self.conversation_buffer = []
-        self.conversation_lock = False
+        self.conversation_lock = threading.Lock()
+        self.ust = None
+        self.ust_lock = threading.Lock()
 
         self.rsa = None
         self.rsa_sign = None
@@ -115,7 +119,7 @@ class Client:
         print "\n",
 
     def subscribe(self):
-        print "Subscrbing please wait..."
+        print "Subscribing please wait..."
         self.rsa = RSA_gen(4096)
         self.n, self.e, self.d = RSA_keys(self.rsa)
         #self.ElGkey = ElGamal.generate(256, Random.new().read)
@@ -124,6 +128,7 @@ class Client:
         self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
 
         self.ust = UST(self.server_pk_n, self.server_pk_e)
+        self.ust_lock.acquire()
         self.ust.prepare()
 
         args = {"blinded_nonce"     :  self.ust.blinded_nonce, 
@@ -140,6 +145,7 @@ class Client:
             sys.exit(0)
 
         self.ust.receive(r['blinded_sign'])
+        self.ust_lock.release()
 
         user = r['user']
 
@@ -153,13 +159,13 @@ class Client:
 
         self.user_id = user['client_user_id']
         self.user_table_ptr = 0
-        self.client_new_conversations_ptr = 0
+        self.client_new_conversations_table_ptr = 0
 
         return
 
     def client_update(self):
         while True:
-
+            self.ust_lock.acquire()
             self.ust.prepare()
 
             args = {"nonce"                 :  self.ust.nonce,
@@ -170,6 +176,7 @@ class Client:
             r = send_request(UPDATE_USER_TABLE, args)
             
             self.ust.receive(r['blinded_sign'])
+            self.ust_lock.release()
 
             new_users = r['new_users']
 
@@ -191,12 +198,13 @@ class Client:
 
     def reserve_slot(self):
         while True:
+            self.ust_lock.acquire()
             self.ust.prepare()
 
             slot_id = random.getrandbits(128) 
-            nonce = (slot_id << 128) + random.getrandbits(128)
+            delete_nonce = (slot_id << 128) + random.getrandbits(128)
             ust_delete = UST(self.server_pk_n,self.server_pk_e)
-            ust_delete.prepare(nonce)
+            ust_delete.prepare(delete_nonce)
 
             args = {"nonce"                     :  self.ust.nonce,
                     "signature"                 :  self.ust.signature,
@@ -207,39 +215,40 @@ class Client:
             r = send_request(RESERVE, args)
 
             self.ust.receive(r['blinded_sign'])
+            self.ust_lock.release()
 
             if r['success'] == True:
                 ust_delete.receive(r['blinded_deletion_sign'])
                 sig = ust_delete.signature
-                return slot_id, sig
+                return slot_id, delete_nonce, sig
 
     def init_conversation(self, recipient):
         if recipient == self.username:
             print "ERROR: Please enter a username that is not your own"
 
         # Reserve Read/Write slot
-        read_slot_id, read_slot_sig = self.reserve_slot()
-        write_slot_id, write_slot_sig = self.reserve_slot()
+        read_slot_id, read_nonce, read_slot_sig = self.reserve_slot()
+        write_slot_id, write_nonce, write_slot_sig = self.reserve_slot()
 
 
         my_username = int(bin(int(binascii.hexlify(self.username.ljust(256)), 16)),2)
         recipient_username = int(bin(int(binascii.hexlify(recipient.ljust(256)), 16)),2)
 
-        P = (write_slot_sig << 768) + \
+        P = (write_slot_sig << 1024) + \
+            (write_nonce << 768) + \
             (my_username << 512) +  \
             (recipient_username << 256) + \
             (read_slot_id << 128) + \
             write_slot_id
-
-        #sign = PKCS1_sign(str(P), self.rsa_sign)
         
-        #signature = ElG_sign(str(P), self.ElGkey)
         sign = PKCS1_sign(str(P), self.rsa_sign)
-        M = str(sign) + "*****" + str(P)
+        M = sign + P
+        #print sign.strip(), P, type(sign), type(P)
 
         rsa_recipient = RSA_gen_user(self.user_table[recipient])
-        enc_M = RSA_encrypt( M, rsa_recipient)[0]
+        enc_M = RSA_encrypt( M, rsa_recipient)
  
+        self.ust_lock.acquire()
         self.ust.prepare()
         
         args = {"nonce"                     :  self.ust.nonce,
@@ -249,60 +258,73 @@ class Client:
 
         r = send_request(INITIATE, args)
         self.ust.receive(r['blinded_sign'])
+        self.ust_lock.release()
 
         conversation_obj = Conversation(self.user_table[self.username],
                                         self.user_table[recipient],
                                         read_slot_id,
                                         write_slot_id,
+                                        read_nonce,
                                         read_slot_sig)
 
-        while self.conversation_lock:
-            continue
-        self.conversation_lock = True
-        self.conversations[sender] = conversation_obj
-        self.conversation_buffer.append(sender)
-        self.conversation_lock = False
+
+        self.conversation_lock.acquire()
+        self.conversations[recipient] = conversation_obj
+        self.conversation_lock.release()
 
         return 
 
     def conversation_update(self):
 
         while True:
-
+            print "HERE NOW"
+            self.ust_lock.acquire()
             self.ust.prepare()
 
-            args = {"nonce"                        :  self.ust.nonce,
-                    "signature"                    :  self.ust.signature,
-                    "blinded_nonce"                :  self.ust.blinded_nonce, 
-                    "client_new_conversations_ptr" :  self.client_new_conversations_ptr}
+            args = {"nonce"                              :  self.ust.nonce,
+                    "signature"                          :  self.ust.signature,
+                    "blinded_nonce"                      :  self.ust.blinded_nonce, 
+                    "client_new_conversations_table_ptr" :  self.client_new_conversations_table_ptr}
 
             r = send_request(UPDATE_NEW_CONVERSATION_TABLE, args)
             
             self.ust.receive(r['blinded_sign'])
+            self.ust_lock.release()
 
             new_conversations = r['new_conversations']
 
+            print new_conversations
             for conversation in new_conversations:
                 conversation_id = conversation['conversation_id']
                 enc_M = conversation['message']
 
-                self.client_new_conversations_ptr = conversation_id
+                self.client_new_conversations_table_ptr = conversation_id
 
-                M = RSA_decrypt(message, self.rsa)
-
-                parts = M.split("*****")
-                if len(parts) < 2:
+                M = RSA_decrypt(enc_M, self.rsa)
+                print "M: ", M
+                parts = M.split("****")
+                print "SPLITTED", parts
+                if len(parts) != 2:
                     # Not a valid decryption,
                     # Message was not intended for me
                     continue
 
+                print "BYTING"
+
                 sign = str(parts[0])
                 P = str(parts[1])
 
-                write_slot_id
+                bit_P = bitarray()
+                bit_P.fromstring(P)
 
-                sender = (P >> 512)
-                recipient = (P - (sender << 512)) >> 256
+                write_slot_sig  = bit_P[0:1024].tobytes()
+                write_nonce     = bit_P[1024:1280].tobytes()
+                sender          = bit_P[1280:1536].tobytes()
+                recipient       = bit_P[1536:1792].tobytes()
+                write_slot_id   = bit_P[1792:1920].tobytes()
+                read_slot_id    = bit_P[1920:2048].tobytes()
+
+                print sender, recipient, write_slot_id, read_slot_id
 
                 if recipient != self.username:
                     # Should not reach here
@@ -313,9 +335,7 @@ class Client:
                 rsa_sign_sender = RSA_gen_user_sign(self.user_table[sender])
 
                 if PKCS1_verify(sign, P, rsa_sign_sender):
-                    write_slot_id = (P - (sender << 512) - (recipient << 256)) >> 128
-                    read_slot_id = P - (sender << 512) - (recipient << 256) - (write_slot_id << 128)
-
+                
                     conversation_obj = Conversation(self.user_table[username],
                                                     self.user_table[sender],
                                                     read_slot_id,
@@ -323,10 +343,9 @@ class Client:
 
                     while self.conversation_lock:
                         continue
-                    self.conversation_lock = True
+                    self.conversation_lock.acquire()
                     self.conversations[sender] = conversation_obj
-                    self.conversation_buffer.append(sender)
-                    self.conversation_lock = False
+                    self.conversation_lock.release()
 
             time.sleep(NEW_CONVERSATION_WAIT)
         return
@@ -340,6 +359,7 @@ class Client:
         x = bin(int(binascii.hexlify(msg), 16))
         new_text = int(x,2)
         P = (new_text << 2432) + (next_block << 2304) + (ND << 2048) + (ND_signed)
+        self.ust_lock.acquire()
         self.ust.prepare()
         # h = SHA.new()
         # h.update(str(P))
@@ -356,6 +376,10 @@ class Client:
                 "slot_id":  slot_id,
                 "message":  ciphertext}
         r = send_request(PUSH, args)
+
+
+        # TODO... alot, receive, etc.
+
         if r['status'] == FAILED:
             print 'ERROR: could not push message'
         return
@@ -424,6 +448,12 @@ def PKCS1_sign(message, rsa):
     signature = signer.sign(h)
     return base64.encodestring(signature)
 
+def PKCS1_verify(signature, message, rsa):
+    h = SHA.new()
+    h.update(base64.decodestring(message))
+    verifier = PKCS1_PSS.new(rsa)
+    return verifier.verify(h, signature)
+
 def ElG_sign(message,key):
     h = SHA.new(message).digest()
     while 1:
@@ -432,12 +462,6 @@ def ElG_sign(message,key):
             break
     sig = key.sign(h,k)
     return sig
-
-def PKCS1_verify(signature, message, rsa):
-    h = SHA.new()
-    h.update(base64.decodestring(message))
-    verifier = PKCS1_PSS.new(rsa)
-    return verifier.verify(h, signature)
 
 def H(m):
     """

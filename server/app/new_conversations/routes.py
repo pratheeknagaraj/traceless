@@ -22,7 +22,7 @@ def initiate():
         server_new_conversations_table = app.jinja_env.globals['server_new_conversations_table']
         server_new_conversations_table_lock = app.jinja_env.globals['server_new_conversations_table_lock']
         with server_new_conversations_table_lock:
-            print "INIT:", request.json['message']
+            print "INIT CONVO:", request.json
             conversation = {
                 'conversation_id' : len(server_new_conversations_table),
                 'message' : request.json['message']
@@ -45,7 +45,7 @@ def update_user_table():
         server_new_conversations_table = app.jinja_env.globals['server_new_conversations_table']
         server_new_conversations_table_lock = app.jinja_env.globals['server_new_conversations_table_lock']
         with server_new_conversations_table_lock:
-            new_conversations = sever_new_conversations_table[request.json['client_new_conversations_table_ptr']:]
+            new_conversations = server_new_conversations_table[request.json['client_new_conversations_table_ptr']:]
             server_seen_nonces[request.json['nonce']] = jsonify({'new_conversations' : new_conversations,
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
