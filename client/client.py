@@ -124,7 +124,7 @@ class Client:
         self.n, self.e, self.d = RSA_keys(self.rsa)
         #self.ElGkey = ElGamal.generate(256, Random.new().read)
 
-        self.rsa_sign = RSA_gen(1024)
+        self.rsa_sign = RSA_gen(256)
         self.n_sign, self.e_sign, self.d_sign = RSA_keys(self.rsa_sign)
 
         self.ust = UST(self.server_pk_n, self.server_pk_e)
@@ -242,12 +242,16 @@ class Client:
             write_slot_id
         
         sign = PKCS1_sign(str(P), self.rsa_sign)
-        M = sign + P
-        #print sign.strip(), P, type(sign), type(P)
+        M = sign + "****" + str(P)
+        #print "ENC PREP: ", M
+        #M = str(random.getrandbits(1700))
+        print "MES ENC: ", M
 
         rsa_recipient = RSA_gen_user(self.user_table[recipient])
+        #print "RSA REC:", rsa_recipient.n, rsa_recipient.e
         enc_M = RSA_encrypt( M, rsa_recipient)
- 
+        #print "MES SEND: ", enc_M
+
         self.ust_lock.acquire()
         self.ust.prepare()
         
@@ -277,7 +281,6 @@ class Client:
     def conversation_update(self):
 
         while True:
-            print "HERE NOW"
             self.ust_lock.acquire()
             self.ust.prepare()
 
@@ -293,23 +296,27 @@ class Client:
 
             new_conversations = r['new_conversations']
 
-            print new_conversations
             for conversation in new_conversations:
                 conversation_id = conversation['conversation_id']
                 enc_M = conversation['message']
 
                 self.client_new_conversations_table_ptr = conversation_id
 
+                #print "MES REC", enc_M
+                #print "RSA CHECK:", RSA_keys(self.rsa)
                 M = RSA_decrypt(enc_M, self.rsa)
-                print "M: ", M
+                #print "DEC REC:", M
+                
+                print "M DEC: ", M
                 parts = M.split("****")
-                print "SPLITTED", parts
+
                 if len(parts) != 2:
                     # Not a valid decryption,
                     # Message was not intended for me
                     continue
 
                 print "BYTING"
+                print parts
 
                 sign = str(parts[0])
                 P = str(parts[1])
@@ -450,9 +457,9 @@ def PKCS1_sign(message, rsa):
 
 def PKCS1_verify(signature, message, rsa):
     h = SHA.new()
-    h.update(base64.decodestring(message))
+    h.update(message)
     verifier = PKCS1_PSS.new(rsa)
-    return verifier.verify(h, signature)
+    return verifier.verify(h, base64.decodestring(signature))
 
 def ElG_sign(message,key):
     h = SHA.new(message).digest()
@@ -470,7 +477,7 @@ def H(m):
    """
     m = str(m)
     return int(hashlib.sha256(m).hexdigest(),16)
-'''
+
 if len(sys.argv) < 2:
     print "ERROR: Please start client with an input username"
     sys.exit(0)
@@ -478,4 +485,3 @@ if len(sys.argv) < 2:
 client = Client()
 username_in = sys.argv[1]
 client.main(username_in)
-'''
