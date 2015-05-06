@@ -334,7 +334,7 @@ class Client:
                     self.conversation_lock.acquire()
                     self.conversations[sender] = conversation_obj
                     self.conversation_lock.release()
-                    print "\nConversation started with: ", sender, "\n>> "
+                    print "\nConversation started with: ", sender, "\n>> ",
                 except:
                     continue
 
@@ -343,21 +343,23 @@ class Client:
 
     def send_message(self, username, text): #, slot_id, next_block, ND, ND_signed):
         if len(text) > 256:
-            print "\nERROR: message too long\n>> "
+            print "\nERROR: message too long\n>> ",
             return
 
         if username not in self.user_table:
-            print "\nERROR: user " + username + " does not exist\n>> "
+            print "\nERROR: user " + username + " does not exist\n>> ",
             return
 
         if username not in self.conversations:
-            print "\nERROR: please start conversation with " + username + " first\n>> "
+            print "\nERROR: please start conversation with " + username + " first\n>> ",
             return
 
         conversation = self.conversations[username]
         write_slot_id = conversation.write_slot_id
 
         new_write_slot_id, new_write_nonce, new_write_slot_sig = self.reserve_slot()
+
+        conversation.update_write_slot(new_write_slot_id)
 
         msg = text.ljust(128)
         x = bin(int(binascii.hexlify(msg), 16))
@@ -366,8 +368,6 @@ class Client:
         #P = (new_text << 2432) + (next_block << 2304) + (ND << 2048) + (ND_signed)
         
         P = (new_text << 128) + new_write_slot_id  
-
-        print new_write_slot_id
 
         self.ust_lock.acquire()
         self.ust.prepare()
@@ -389,37 +389,8 @@ class Client:
         self.ust_lock.release()
 
         conversation.add_write_text(text)
-        print "\n" + conversation.get_conversation() + "\n>> "
+        print "\n" + conversation.get_conversation() + "\n>> ",
         return
-
-    def read_message(signature, ciphertext, other_user_public_key, my_key): #assumes other_user_public_key is tuple of form (n,e), my_key is of form (n,e,d)
-        checksum_n = other_user_public_key[0]
-        checksum_e = other_user_public_key[1]
-        n = my_key[0]
-        e = my_key[1]
-        d = my_key[2]
-        plaintext = RSA_decrypt(ciphertext, n, e, d)
-        if PKCS1_verify(signature, plaintext, checksum_n, checksum_e) != True:
-            return 'Message could not be verified'
-        return plaintext
-
-    def collect_messages(self, ciphertext, username): #assumes already pulled from server
-        plaintext = RSA_decrypt(ciphertext, self.rsa)
-        signature = plaintext >> 4480
-        other_user = user['username']
-        n = user.n_sign
-        e = user.e_sign
-        rsa_key = RSA.construct((n,e))
-        if PKCS1_verify(signature, plaintext, rsa_key) != True:
-            print "message could not be verified"
-            return
-        a = ciphertext - (signature << 4480)
-        msg_retrieve = a >> 2432
-        nb = (a >> 2304) - (msg_retrieve << 128)
-        nd = (a >> 2048) - (msg_retrieve << 384) - (nb << 256)
-        signed_nd = a - (msg_retrieve << 2432) - (nb_final << 2176) - (nd_temp << 2048)
-        text = binascii.unhexlify('%x' % msg_retrieve)
-        return text, nb, nd, signed_nd
 
     def message_update(self):
         while True:
@@ -456,9 +427,9 @@ class Client:
                         # Need to verify message sender
                         # Can use just username
 
-                        conversation.read_slot_id = new_read_slot_id
+                        conversation.update_read_slot(new_read_slot_id)
                         conversation.add_read_text(text)
-                        print "\n" + conversation.get_conversation() + "\n>> "
+                        print "\n" + conversation.get_conversation() + "\n>> ",
                     except:
                         continue
 

@@ -19,11 +19,11 @@ class Conversation:
 	def add_write_text(self, text):
 		self.messages.append( (self.my_user, text) )
 
-	def update_read_slot(self, read_slot):
-		self.read_slot = read_slot
+	def update_read_slot(self, read_slot_id):
+		self.read_slot_id = read_slot_id
 
-	def update_write_slot(self, write_slot):
-		self.write_slot = write_slot
+	def update_write_slot(self, write_slot_id):
+		self.write_slot_id = write_slot_id
 
 	def get_conversation(self):
 		return self.__str__()
