@@ -14,6 +14,8 @@ def create_app(config_name):
     db.init_app(app)
     celery.config_from_object(app.config)
     
+    app.jinja_env.globals['server_me_url'] = None    
+
     app.jinja_env.globals['server_user_table'] = []
     app.jinja_env.globals['server_user_table_lock'] = Lock()
     
@@ -23,36 +25,33 @@ def create_app(config_name):
     app.jinja_env.globals['server_new_conversations_table'] = []
     app.jinja_env.globals['server_new_conversations_table_lock'] = Lock()
     
-    app.jinja_env.globals['server_messages_table'] = {}
-    app.jinja_env.globals['server_messages_table_lock'] = Lock()
-    
     app.jinja_env.globals['server_seen_nonces'] = {}
     app.jinja_env.globals['server_seen_nonces_lock'] = Lock()
-    
-    app.jinja_env.globals['server_deletion_nonces'] = {}
-    app.jinja_env.globals['server_deletion_nonces_lock'] = Lock()
-
-    app.jinja_env.globals['server_reservation_table'] = {}
-    app.jinja_env.globals['server_reservation_table_lock'] = Lock()
     
     rsa = RSA.generate(2048)
     
     app.jinja_env.globals['server_rsa'] = rsa
     app.jinja_env.globals['server_pk'] = rsa.n, rsa.e  
     app.jinja_env.globals['server_sk'] = rsa.n, rsa.d
+    
+    app.jinja_env.globals['slave_urls'] = []
+    app.jinja_env.globals['slave_keys'] = {} # In the form {url : {n : ---, d: ---, e : ---}}
+    
+    app.jinja_env.globals['server_view_number'] = 0
 
-    from .pushes import pushes as pushes_blueprint
-    app.register_blueprint(pushes_blueprint)
+    app.jinja_env.globals['server_views'] = {} # in the form of {shard ranges : {'P' : ------, 'B' : ------ }}
 
-    from .pulls import pulls as pulls_blueprint
-    app.register_blueprint(pulls_blueprint)
-
+    app.jinja_env.globals['shard_ranges'] = [] # We are splitting int shards of size 4, and its inclusive, exclusive
+    
     from .new_conversations import new_conversations as new_conversations_blueprint
     app.register_blueprint(new_conversations_blueprint)
 
     from .new_users import new_users as new_users_blueprint
     app.register_blueprint(new_users_blueprint)
     
+    from .view_manager import view_manager as view_manager_blueprint
+    app.register_blueprint(view_manager_blueprint)
+
     from .async import async as async_blueprint
     app.register_blueprint(async_blueprint)
 
