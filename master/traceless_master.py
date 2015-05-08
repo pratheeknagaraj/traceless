@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-from app import create_app, celery
+from master_app import create_app, celery
 from flask.ext.script import Manager
 
 application = create_app(os.getenv('FLASK_CONFIG') or 'default')

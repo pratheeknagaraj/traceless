@@ -14,26 +14,22 @@ def create_app(config_name):
     db.init_app(app)
     celery.config_from_object(app.config)
 
-    app.jinja_env.globals['server_me_url'] = None
-    app.jinja_env.globals['server_master_url'] = None
+    app.jinja_env.globals['server_me_url'] = 'http://localhost:9000'
+    app.jinja_env.globals['server_master_url'] = 'http://localhost:5000'
     
     app.jinja_env.globals['server_view_number'] = 0
     
     app.jinja_env.globals['server_views'] = {} # in the form of {shard ranges : {'P' : ------, 'B' : ------ }}
 
-    app.jinja_env.globals['shard_ranges'] = [] # We are splitting int shards of size 4, and its inclusive, exclusive
+    app.jinja_env.globals['shard'] = None
     
+    app.jinja_env.globals['server_view_manager_lock'] = Lock()
+
     app.jinja_env.globals['server_messages_table'] = {}
-    app.jinja_env.globals['server_messages_table_lock'] = Lock()
+    # app.jinja_env.globals['server_messages_table_lock'] = Lock()
     
     app.jinja_env.globals['server_seen_nonces'] = {}
-    app.jinja_env.globals['server_seen_nonces_lock'] = Lock()
-    
-    app.jinja_env.globals['server_deletion_nonces'] = {}
-    app.jinja_env.globals['server_deletion_nonces_lock'] = Lock()
-
-    app.jinja_env.globals['server_reservation_table'] = {}
-    app.jinja_env.globals['server_reservation_table_lock'] = Lock()
+    # app.jinja_env.globals['server_seen_nonces_lock'] = Lock()
     
     rsa = RSA.generate(2048)
     
