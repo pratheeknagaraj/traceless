@@ -111,8 +111,9 @@ def update_server_view():
         
         if request.json['nonce'] in server_seen_nonces:
             return server_seen_nonces[request.json['nonce']]
-
-        server_seen_nonces[request.json['nonce']] = jsonify({'blind_slave_sign' : master_ust_sign_for_slave(
+        slave_n = app.jinja_env.globals['slave_keys'][request.json['slave_url']]['n']
+        slave_d = app.jinja_env.globals['slave_keys'][request.json['slave_url']]['d'] 
+        server_seen_nonces[request.json['nonce']] = jsonify({'blind_slave_sign' : master_ust_sign_for_slave(request.json['blinded_slave_nonce'], slave_n, slave_d), 
                                                             'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
 
 
