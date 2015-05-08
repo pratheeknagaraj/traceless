@@ -13,6 +13,9 @@ def ust_sign(blinded_nonce):
     n, d = app.jinja_env.globals['server_sk']
     return power(blinded_nonce, d, n)
 
+def master_ust_sign_for_slave(blinded_nonce, slave_n, slave_d):
+    return power(blinded_nonce, slave_d, slave_n)
+
 def power(x, y, z):
     number = 1
     while y:

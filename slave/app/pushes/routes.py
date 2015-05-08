@@ -50,38 +50,41 @@ def push():
             return server_seen_nonces[request.json['nonce']]
 
         server_messages_table = app.jinja_env.globals['server_messages_table']
-        if request.json['slot_id'] in server_messages_table:
-            try:
-                args = {
-                    'messages_table' :  {request.json['slot_id'] : server_messages_table[request.json['slot_id']] + [request.json['message']]}
-                }
-                response = requests.post(app.jinja_env.globals['server_master_url'] + "/process_forward", headers=headers, data=json.dumps(args))
-                r = json.loads(response.text)
-                if r['success'] == False:
+
+        if app.jinja_env.globals['server_views'][shard]['B'] != '':
+            if request.json['slot_id'] in server_messages_table:
+                try:
+                    args = {
+                        'messages_table' :  {request.json['slot_id'] : server_messages_table[request.json['slot_id']] + [request.json['message']]}
+                    }
+                    response = requests.post(app.jinja_env.globals['server_master_url'] + "/process_forward", headers=headers, data=json.dumps(args))
+                    r = json.loads(response.text)
+                    if r['success'] == False:
+                        server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
+                                                                            'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
+                        return server_seen_nonces[request.json['nonce']]
+                except requests.exceptions.RequestException as e:
                     server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
                                                                         'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
                     return server_seen_nonces[request.json['nonce']]
-            except requests.exceptions.RequestException as e:
-                server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
-                                                                    'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
-                return server_seen_nonces[request.json['nonce']]
-            server_messages_table[request.json['slot_id']].append(request.json['message'])
-        else:
-            try:
-                args = {
-                    'messages_table' : {request.json['slot_id'] : [request.json['message']]}
-                }
-                response = requests.post(app.jinja_env.globals['server_master_url'] + "/process_forward", headers=headers, data=json.dumps(args))
-                r = json.loads(response.text)
-                if r['success'] == False:
+                server_messages_table[request.json['slot_id']].append(request.json['message'])
+            else:
+                try:
+                    args = {
+                        'messages_table' : {request.json['slot_id'] : [request.json['message']]}
+                    }
+                    response = requests.post(app.jinja_env.globals['server_master_url'] + "/process_forward", headers=headers, data=json.dumps(args))
+                    r = json.loads(response.text)
+                    if r['success'] == False:
+                        server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
+                                                                            'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
+                        return server_seen_nonces[request.json['nonce']]
+                except requests.exceptions.RequestException as e:
                     server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
                                                                         'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
                     return server_seen_nonces[request.json['nonce']]
-            except requests.exceptions.RequestException as e:
-                server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
-                                                                    'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
-                return server_seen_nonces[request.json['nonce']]
-            server_messages_table[request.json['slot_id']] = [request.json['message']]
+                server_messages_table[request.json['slot_id']] = [request.json['message']]
+        
         server_seen_nonces[request.json['nonce']] = jsonify({'success' : True,
                                                             'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
         return server_seen_nonces[request.json['nonce']]
