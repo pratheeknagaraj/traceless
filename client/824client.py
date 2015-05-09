@@ -141,8 +141,8 @@ class Client:
         print "\n",
 
     def print_conversation(self,username):
-        pass
-        
+        if username 
+
     def gen_keys(self):
         self.rsa = RSA_gen(4096)
         self.n, self.e, self.d = RSA_keys(self.rsa)
@@ -347,6 +347,10 @@ class Client:
             print "ERROR: Please enter a username that is not your own"
             return 
 
+        if recipient not in self.user_table[recipient]:
+            print "ERROR: Please enter a username that is available"
+            return 
+
         # Reserve Read/Write slot
         read_slot_id, read_nonce, read_slot_sig = self.reserve_slot_forced()
         write_slot_id, write_nonce, write_slot_sig = self.reserve_slot_forced()
@@ -533,7 +537,7 @@ class Client:
                 read_slot_id = conversation.read_slot_id
 
                 slave_url = self.get_slave_from_slot(read_slot_id)
-                if slave_url == False:
+                if slave_url == False or slave_url not in self.ust_table:
                     continue 
 
                 ust = self.ust_table[slave_url]
