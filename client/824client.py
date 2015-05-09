@@ -107,24 +107,24 @@ class Client:
         parts = cmd.split(' ', 1)
         cmd_type = parts[0]
 
-        if cmd_type == "1":
+        if cmd_type == "1" or cmd_type == "ut":
             self.print_user_table() 
-        elif cmd_type == "2":
+        elif cmd_type == "2" or cmd_type == "ct":
+            self.print_conversation_table()
+        elif cmd_type == "3" or cmd_type == "c":
             cmd_args = parts[1]
             self.init_conversation(cmd_args)
-        elif cmd_type == "3":
+        elif cmd_type == "4" or cmd_type == "m":
             cmd_args = parts[1]
             split = cmd_args.split(' ', 1)
             username = split[0]
             message = split[1] 
             self.send_message(username, message)
-        elif cmd_type == "4":
-            self.print_conversation_table()
         elif cmd_type == "H":
-            print "  1: 1 - Print Local User Table"
-            print "  2: 2 <username> - Start Conversation with 'username'"
-            print "  3: 3 <username> <message> - Send 'message' to 'username'"
-            print "  4: 4 - Print Local Conversation Table"
+            print "  1: [1,ut] - Print Local User Table"
+            print "  2: [2,ct] - Print Local Conversation Table"
+            print "  3: [3,c] <username> - Start Conversation with 'username'"
+            print "  4: [4,m] <username> <message> - Send 'message' to 'username'"
 
     def print_user_table(self): 
         print "=== Local User Table ==="
@@ -240,6 +240,7 @@ class Client:
 
         ust = self.ust_table[MASTER_URL]
         ust.lock.acquire()
+        ust.prepare()
 
         args = {"nonce"                 :  ust.nonce,
                 "signature"             :  ust.signature,
@@ -341,6 +342,7 @@ class Client:
     def init_conversation(self, recipient):
         if recipient == self.username:
             print "ERROR: Please enter a username that is not your own"
+            return 
 
         # Reserve Read/Write slot
         read_slot_id, read_nonce, read_slot_sig = self.reserve_slot_forced()
