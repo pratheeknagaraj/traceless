@@ -35,7 +35,7 @@ def tick():
 @view_manager.route('/process_ping', methods=['POST'])
 def process_ping():
     with app.jinja_env.globals['server_view_manager_lock']:
-        app.jinja_env.globals['slave_keys'][request.json['slave_url']] = {'n' : request.json['rsa_n'], 'd' : request.json['rsa_d'], 'e' : request.json['rsa_d']}
+        app.jinja_env.globals['slave_keys'][request.json['slave_url']] = {'n' : request.json['rsa_n'], 'd' : request.json['rsa_d'], 'e' : request.json['rsa_e']}
         if is_registered(request.json['slave_url']) is None:
             no_primary = shards_without_primary()
             no_backup = shards_without_backup()
