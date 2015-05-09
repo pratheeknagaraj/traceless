@@ -57,6 +57,7 @@ NEW_CLIENT_WAIT         = 3.000     # Wait 3 seconds
 NEW_CONVERSATION_WAIT   = 3.000     # Wait 3 second
 NEW_MESSAGE_WAIT        = 1.000     # Wait 1 second
 SERVER_UPDATE_WAIT      = 5.000     # Wait 5 seconds
+SLAVE_RETRY_TIME        = 0.500     # Wait 0.5 second
 
 class Client:
 
@@ -537,6 +538,15 @@ class Client:
 
         r = send_request(slave_url, PUSH, args)
 
+        while r['success'] == False:                        # Failed request, retry
+            ust.prepare()
+            args["nonce"]           = ust.nonce
+            args["signature"]       = ust.signature
+            args["blinded_nonce"]   = ust.blinded_nonce
+
+            r = send_request(slave_url, PUSH, args)
+            time.sleep(SLAVE_RETRY_TIME)
+
         ust.receive(r['blinded_sign'])
         ust.lock.release()
 
@@ -563,7 +573,16 @@ class Client:
                         "slot_id"            :  read_slot_id}
 
                 r = send_request(slave_url, PULL, args)
-                
+
+                while r['success'] == False:                        # Failed request, retry
+                    ust.prepare()
+                    args["nonce"]           = ust.nonce
+                    args["signature"]       = ust.signature
+                    args["blinded_nonce"]   = ust.blinded_nonce
+
+                    r = send_request(slave_url, PULL, args)
+                    time.sleep(SLAVE_RETRY_TIME)
+                                    
                 ust.receive(r['blinded_sign'])
                 ust.lock.release()
 
