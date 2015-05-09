@@ -142,12 +142,13 @@ class Client:
 
     def print_conversation(self,username):
         if username not in self.user_table:
-            print "ERROR: user " + username + " does not exist\n>> "
+            print "ERROR: user '" + username + "' does not exist\n>> ",
 
         if username not in self.conversations:
-            print "ERROR"
+            print "ERROR: you have not started a conversation with " + username
 
-        pass
+        conversation = self.conversations[username]
+        print "\n" + conversation.get_conversation() + "\n>> ",
 
     def gen_keys(self):
         self.rsa = RSA_gen(4096)
@@ -244,6 +245,7 @@ class Client:
 
         self.server_table[server.url] = server
         slave_ust = UST(self.server_table[server.url])
+        self.ust_table[server.url] = slave_ust
         slave_ust.lock.acquire()
         slave_ust.prepare()
 
