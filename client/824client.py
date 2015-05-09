@@ -142,7 +142,7 @@ class Client:
 
     def print_conversation(self,username):
         pass
-
+        
     def gen_keys(self):
         self.rsa = RSA_gen(4096)
         self.n, self.e, self.d = RSA_keys(self.rsa)
@@ -458,9 +458,10 @@ class Client:
         return True
 
     def get_slave_from_slot(self, slot_id):
-        ok, shard = self.get_shard_from_slot(slot_id)
+        ok, shard_range = self.get_shard_from_slot(slot_id)
         if not ok:
             return False
+        shard = self.shard_table[shard_range]
         return shard.url
 
     def send_message(self, username, text): #, slot_id, next_block, ND, ND_signed):
