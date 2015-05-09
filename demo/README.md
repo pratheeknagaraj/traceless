@@ -84,4 +84,23 @@ Now we can run the master server
     # virtualenv)
     python start_celery.py worker -A master_app --beat
 
+Similarly we can run each slave. Remember these all need to run with different RabbitMQ virtual hosts
+
+    # RUNNING SLAVE[N]
+    
+    cd slave[N]
+    
+    # set up virtualenv
+    mkvirtualenv traceless_slave[N]
+
+    # install the project
+    pip install -r requirements.txt
+
+    # Run the server
+    python traceless_slave.py runserver
+
+    # Run the celery process (in a new tab, but make sure to activate the 
+    # virtualenv)
+    python start_celery.py worker -A master_app --beat
+
 
