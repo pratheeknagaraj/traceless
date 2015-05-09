@@ -141,7 +141,7 @@ class Client:
         print "\n",
 
     def print_conversation(self,username):
-        if username 
+        pass
 
     def gen_keys(self):
         self.rsa = RSA_gen(4096)
