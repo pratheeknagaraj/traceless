@@ -3,6 +3,7 @@ from flask import jsonify, request, abort
 from flask import current_app as app
 import os
 from .. import traceless_crypto
+from ast import literal_eval
 
 @pulls.route('/pull', methods=['POST'])
 def pull():
@@ -10,6 +11,7 @@ def pull():
         server_seen_nonces = app.jinja_env.globals['server_seen_nonces']
         
         if not request.json or not traceless_crypto.verify(request.json['nonce'], request.json['signature']):
+            print request.json
             abort(400)
     
         if request.json['nonce'] in server_seen_nonces:

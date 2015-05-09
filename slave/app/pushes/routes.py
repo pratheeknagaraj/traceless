@@ -52,8 +52,9 @@ def push():
 
         server_messages_table = app.jinja_env.globals['server_messages_table']
 
-        if app.jinja_env.globals['server_views'][shard]['B'] != '':
-            if request.json['slot_id'] in server_messages_table:
+        
+        if request.json['slot_id'] in server_messages_table:
+            if app.jinja_env.globals['server_views'][shard]['B'] != '':
                 try:
                     args = {
                         'messages_table' :  {request.json['slot_id'] : server_messages_table[request.json['slot_id']] + [request.json['message']]}
@@ -68,8 +69,9 @@ def push():
                     server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
                                                                         'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
                     return server_seen_nonces[request.json['nonce']]
-                server_messages_table[request.json['slot_id']].append(request.json['message'])
-            else:
+            server_messages_table[request.json['slot_id']].append(request.json['message'])
+        else:
+            if app.jinja_env.globals['server_views'][shard]['B'] != '':
                 try:
                     args = {
                         'messages_table' : {request.json['slot_id'] : [request.json['message']]}
@@ -84,7 +86,7 @@ def push():
                     server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
                                                                         'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
                     return server_seen_nonces[request.json['nonce']]
-                server_messages_table[request.json['slot_id']] = [request.json['message']]
+            server_messages_table[request.json['slot_id']] = [request.json['message']]
         
         server_seen_nonces[request.json['nonce']] = jsonify({'success' : True,
                                                             'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
