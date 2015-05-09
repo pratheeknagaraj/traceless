@@ -14,6 +14,8 @@ def initiate():
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']
     with server_seen_nonces_lock:
         if not request.json or not traceless_crypto.verify(request.json['nonce'], request.json['signature']):
+            print "GAVE ME A WRONG NONCE SIG PAIR"
+            print request.json['nonce'], request.json['signature']
             abort(400)
         
         if request.json['nonce'] in server_seen_nonces:
@@ -40,7 +42,7 @@ def update_user_table():
         server_new_conversations_table = app.jinja_env.globals['server_new_conversations_table']
         server_new_conversations_table_lock = app.jinja_env.globals['server_new_conversations_table_lock']
         with server_new_conversations_table_lock:
-            new_conversations = sever_new_conversations_table[request.json['client_new_conversations_table_ptr']:]
+            new_conversations = server_new_conversations_table[request.json['client_new_conversations_table_ptr']:]
             server_seen_nonces[request.json['nonce']] = jsonify({'new_conversations' : new_conversations,
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]

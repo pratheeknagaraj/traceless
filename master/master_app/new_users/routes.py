@@ -49,9 +49,11 @@ def update_user_table():
     server_seen_nonces_lock = app.jinja_env.globals['server_seen_nonces_lock']
     with server_seen_nonces_lock:
         if not request.json or not traceless_crypto.verify(request.json['nonce'], request.json['signature']):
+            print "DUDE YOU FAILED LIKE INSANITY"
             abort(400)
 
         if request.json['nonce'] in server_seen_nonces:
+            print "HUHHHH"
             return server_seen_nonces[request.json['nonce']]
 
         user_table = app.jinja_env.globals['server_user_table']
@@ -60,5 +62,6 @@ def update_user_table():
             new_users = user_table[request.json['client_user_table_ptr']:]
             server_seen_nonces[request.json['nonce']] = jsonify({'new_users' : new_users, 
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
+            print server_seen_nonces[request.json['nonce']]
             return server_seen_nonces[request.json['nonce']]
         

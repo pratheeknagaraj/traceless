@@ -575,6 +575,9 @@ class Client:
 def send_request(server, route, args, retry=True):
     RETRY_TICKS = 100
 
+    if 'nonce' in args:
+        print args['nonce'] % 10000, route, server
+
     headers = {'content-type': 'application/json'}
     data = json.dumps(args)
     url = server + "/" + route
