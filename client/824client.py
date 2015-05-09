@@ -593,7 +593,7 @@ class Client:
                     if ust.lock.locked():
                         ust.lock.release()
 
-                    slave_url = self.get_slave_from_slot(write_slot_id)
+                    slave_url = self.get_slave_from_slot(read_slot_id)
                     if slave_url not in self.ust_table:
                         time.sleep(SLAVE_WAIT_TIME)
                         continue
