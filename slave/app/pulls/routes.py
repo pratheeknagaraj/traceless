@@ -4,6 +4,8 @@ from flask import current_app as app
 import os
 from .. import traceless_crypto
 from ast import literal_eval
+import requests
+import json
 
 @pulls.route('/pull', methods=['POST'])
 def pull():
@@ -30,6 +32,7 @@ def pull():
                 args = {
                     'messages_table' :  {}
                 }
+                headers = {'content-type': 'application/json'}
                 response = requests.post(app.jinja_env.globals['server_views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
                 r = json.loads(response.text)
                 if r['success'] == False:
@@ -43,10 +46,12 @@ def pull():
             
         server_messages_table = app.jinja_env.globals['server_messages_table']
         if request.json['slot_id'] in server_messages_table:             
-            server_seen_nonces[request.json['nonce']] = jsonify({'messages' : server_messages_table[request.json['slot_id']],
+            server_seen_nonces[request.json['nonce']] = jsonify({'success' : True,
+                                                                'messages' : server_messages_table[request.json['slot_id']],
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
         else:
-            server_seen_nonces[request.json['nonce']] = jsonify({'messages' : [],
+            server_seen_nonces[request.json['nonce']] = jsonify({'success' : True,
+                                                                'messages' : [],
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
 
         return server_seen_nonces[request.json['nonce']]

@@ -664,6 +664,8 @@ def send_request(server, route, args, retry=True):
             else:
                 time.sleep(0.01)
         else:
+            pool.terminate()
+            pool = None
             break
 
     response = response_handle.get()

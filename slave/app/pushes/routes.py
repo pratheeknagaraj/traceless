@@ -4,6 +4,8 @@ from flask import current_app as app
 import os
 from .. import traceless_crypto
 from ast import literal_eval
+import requests
+import json
 
 # @pushes.route('/reserve', methods=['POST'])
 # def reserve():
@@ -59,6 +61,7 @@ def push():
                     args = {
                         'messages_table' :  {request.json['slot_id'] : server_messages_table[request.json['slot_id']] + [request.json['message']]}
                     }
+                    headers = {'content-type': 'application/json'}
                     response = requests.post(app.jinja_env.globals['server_views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
                     r = json.loads(response.text)
                     if r['success'] == False:
@@ -76,6 +79,7 @@ def push():
                     args = {
                         'messages_table' : {request.json['slot_id'] : [request.json['message']]}
                     }
+                    headers = {'content-type': 'application/json'}
                     response = requests.post(app.jinja_env.globals['server_views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
                     r = json.loads(response.text)
                     if r['success'] == False:

@@ -27,21 +27,24 @@ def send_ping():
             r = json.loads(response.text)
             shard = get_shard(r['views'])
             if shard is not None:
-                needForward = r['views'][shard]['B'] != '' \
-                    and r['views'][shard]['B'] != app.jinja_env.globals['server_views'][shard]['B'] \
-                    and r['views'][shard]['P'] == app.jinja_env.globals['server_me_url'] 
-                if needForward:
-                    try:
-                        args = {
-                            'messages_table' : app.jinja_env.globals['server_messages_table'] 
-                        }
-                        response = requests.post(r['views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
-                        r = json.loads(response.text)
-                        if r['success'] == False:
+                if shard in app.jinja_env.globals['server_views']:
+                    print app.jinja_env.globals['server_views']
+                    needForward = r['views'][shard]['B'] != '' \
+                        and r['views'][shard]['P'] == app.jinja_env.globals['server_me_url'] \
+                        and r['views'][shard]['B'] != app.jinja_env.globals['server_views'][shard]['B'] 
+                    if needForward:
+                        try:
+                            args = {
+                                'messages_table' : app.jinja_env.globals['server_messages_table'] 
+                            }
+                            headers = {'content-type': 'application/json'}
+                            response = requests.post(r['views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
+                            r2 = json.loads(response.text)
+                            if r2['success'] == False:
+                                return jsonify({'success' : False}), 200
+                        except requests.exceptions.RequestException as e:
+                            print e
                             return jsonify({'success' : False}), 200
-                    except requests.exceptions.RequestException as e:
-                        print e
-                        return jsonify({'success' : False}), 200
                 app.jinja_env.globals['shard'] = shard
                 app.jinja_env.globals['server_view_number'] = r['views'][app.jinja_env.globals['shard']]['N']
                 app.jinja_env.globals['server_views'] = r['views']
@@ -60,7 +63,7 @@ def process_forward():
             return jsonify({'success' : False}), 200
         for slot in request.json['messages_table']:
             app.jinja_env.globals['server_messages_table'][slot] = request.json['messages_table'][slot]
-        print server_messages_table
+        print app.jinja_env.globals['server_messages_table']
         return jsonify({'success' : True}), 200
     
 def get_shard(views):
