@@ -4,15 +4,12 @@ import threading
 
 class UST:
 
-    def __init__(self, server_pk_n, server_pk_e):
-        self.server_pk_n = server_pk_n
-        self.server_pk_e = server_pk_e
+    def __init__(self, server):
+        self.server_pk_n = server.n
+        self.server_pk_e = server.e
         self.nonce = None
         self.signature = None
         self.lock = threading.Lock()
-
-    def __init__(self, server):
-        self.__init__(server.n, server.e)
 
     def blind(self,nonce):
         R, self.mod_inv = self.inverse()

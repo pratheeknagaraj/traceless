@@ -292,7 +292,7 @@ class Client:
 
             slot_id = random.getrandbits(128) 
             delete_nonce = (slot_id << 128) + random.getrandbits(128)
-            ust_delete = UST(self.server_pk_n,self.server_pk_e)
+            ust_delete = UST(self.server_table[MASTER_URL])
             ust_delete.prepare(delete_nonce)
 
             args = {"nonce"                     :  ust.nonce,
