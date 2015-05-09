@@ -543,6 +543,7 @@ class Client:
 
         r = send_request(slave_url, PUSH, args)
         print r
+        ust.receive(r['blinded_sign'])
 
         while r['success'] == False:                        # Failed request, retry
             if ust.lock.locked():
@@ -562,10 +563,11 @@ class Client:
 
             r = send_request(slave_url, PUSH, args)
             print r
+            ust.receive(r['blinded_sign'])
             time.sleep(SLAVE_RETRY_TIME)
 
-        ust.receive(r['blinded_sign'])
-        ust.lock.release()
+        if ust.lock.locked():
+            ust.lock.release()
 
         conversation.add_write_text(text)
         print "\n" + conversation.get_conversation() + "\n>> ",
@@ -590,6 +592,7 @@ class Client:
                         "slot_id"            :  read_slot_id}
 
                 r = send_request(slave_url, PULL, args)
+                ust.receive(r['blinded_sign'])
 
                 while r['success'] == False:                        # Failed request, retry
                     if ust.lock.locked():
@@ -609,10 +612,11 @@ class Client:
                     args["blinded_nonce"]   = ust.blinded_nonce
 
                     r = send_request(slave_url, PULL, args)
+                    ust.receive(r['blinded_sign'])
                     time.sleep(SLAVE_RETRY_TIME)
 
-                ust.receive(r['blinded_sign'])
-                ust.lock.release()
+                if ust.lock.locked():
+                    ust.lock.release()
 
                 messages = r['messages']
 
