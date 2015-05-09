@@ -57,6 +57,7 @@ NEW_CLIENT_WAIT         = 3.000     # Wait 3 seconds
 NEW_CONVERSATION_WAIT   = 3.000     # Wait 3 second
 NEW_MESSAGE_WAIT        = 1.000     # Wait 1 second
 SERVER_UPDATE_WAIT      = 5.000     # Wait 5 seconds
+SLAVE_RETRY_TIME        = 0.500     # Wait 0.5 second
 
 class Client:
 
@@ -114,17 +115,22 @@ class Client:
         elif cmd_type == "3" or cmd_type == "c":
             cmd_args = parts[1]
             self.init_conversation(cmd_args)
-        elif cmd_type == "4" or cmd_type == "m":
+        elif cmd_type == "4" or cmd_type == "mu":
+            cmd_args = parts[1]
+            self.print_conversation(cmd_args)
+        elif cmd_type == "5" or cmd_type == "m":
             cmd_args = parts[1]
             split = cmd_args.split(' ', 1)
             username = split[0]
             message = split[1] 
             self.send_message(username, message)
-        elif cmd_type == "H":
-            print "  1: [1,ut] - Print Local User Table"
-            print "  2: [2,ct] - Print Local Conversation Table"
-            print "  3: [3,c] <username> - Start Conversation with 'username'"
-            print "  4: [4,m] <username> <message> - Send 'message' to 'username'"
+        elif cmd_type == "H" or cmd_type == "h" or cmd_type == "Help" or cmd_type == "help":
+            print "  1: [1,ut]                      - Print Local User Table"
+            print "  2: [2,ct]                      - Print Local Conversation Table"
+            print "  3: [3,c]  <username>           - Start Conversation with 'username'"
+            print "  4: [4,mu] <username>           - Print Conversation with 'username'"
+            print "  5: [5,m]  <username> <message> - Send 'message' to 'username'"
+            print "  H: [H,h,Help,help]             - Print this help message"
 
     def print_user_table(self): 
         print "=== Local User Table ==="
@@ -532,6 +538,15 @@ class Client:
 
         r = send_request(slave_url, PUSH, args)
 
+        while r['success'] == False:                        # Failed request, retry
+            ust.prepare()
+            args["nonce"]           = ust.nonce
+            args["signature"]       = ust.signature
+            args["blinded_nonce"]   = ust.blinded_nonce
+
+            r = send_request(slave_url, PUSH, args)
+            time.sleep(SLAVE_RETRY_TIME)
+
         ust.receive(r['blinded_sign'])
         ust.lock.release()
 
@@ -558,7 +573,16 @@ class Client:
                         "slot_id"            :  read_slot_id}
 
                 r = send_request(slave_url, PULL, args)
-                
+
+                while r['success'] == False:                        # Failed request, retry
+                    ust.prepare()
+                    args["nonce"]           = ust.nonce
+                    args["signature"]       = ust.signature
+                    args["blinded_nonce"]   = ust.blinded_nonce
+
+                    r = send_request(slave_url, PULL, args)
+                    time.sleep(SLAVE_RETRY_TIME)
+                                    
                 ust.receive(r['blinded_sign'])
                 ust.lock.release()
 
