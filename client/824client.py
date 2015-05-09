@@ -163,7 +163,7 @@ class Client:
             sys.exit(0)
 
         ust.receive(r['blinded_sign'])
-        ust.release()
+        ust.lock.release()
 
         user = r['user']
 
@@ -247,7 +247,7 @@ class Client:
         ust.lock.release()
 
         slave_ust.receive(r['blinded_slave_sign'])
-        slave_ust.release()
+        slave_ust.lock.release()
 
     def client_update(self):
         while True:
