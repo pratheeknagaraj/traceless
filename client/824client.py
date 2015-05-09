@@ -68,8 +68,6 @@ class Client:
         self.user_table = {}
         self.conversations = {}
         self.conversation_lock = threading.Lock()
-        self.ust = None
-        self.ust_lock = threading.Lock()
 
         self.rsa = None
         self.rsa_sign = None
@@ -120,10 +118,13 @@ class Client:
             username = split[0]
             message = split[1] 
             self.send_message(username, message)
+        elif cmd_type == "4":
+            self.print_conversation_table()
         elif cmd_type == "H":
             print "  1: 1 - Print Local User Table"
             print "  2: 2 <username> - Start Conversation with 'username'"
             print "  3: 3 <username> <message> - Send 'message' to 'username'"
+            print "  4: 4 - Print Local Conversation Table"
 
     def print_user_table(self): 
         print "=== Local User Table ==="
@@ -190,7 +191,7 @@ class Client:
             args = {"nonce"                     :  ust.nonce,
                     "signature"                 :  ust.signature,
                     "blinded_nonce"             :  ust.blinded_nonce}
-                    
+
             r = send_request(MASTER_URL, UPDATE_SERVER_VIEW, args)
 
             ust.receive(r['blinded_sign'])
@@ -395,7 +396,7 @@ class Client:
             r = send_request(MASTER_URL, UPDATE_NEW_CONVERSATION_TABLE, args)
             
             ust.receive(r['blinded_sign'])
-            ust_lock.release()
+            ust.lock.release()
 
             new_conversations = r['new_conversations']
 
