@@ -34,14 +34,17 @@ def send_ping():
                         and r['views'][shard]['B'] != app.jinja_env.globals['server_views'][shard]['B'] 
                     if needForward:
                         try:
-                            args = {
-                                'messages_table' : app.jinja_env.globals['server_messages_table'] 
-                            }
-                            headers = {'content-type': 'application/json'}
-                            response = requests.post(r['views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
-                            r2 = json.loads(response.text)
-                            if r2['success'] == False:
-                                return jsonify({'success' : False}), 200
+                            finished = False
+                            while finished is False:
+                                args = {
+                                    'messages_table' : app.jinja_env.globals['server_messages_table'] 
+                                }
+                                headers = {'content-type': 'application/json'}
+                                response = requests.post(r['views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
+                                r2 = json.loads(response.text)
+                                finished = r2['success']
+                                # if r2['success'] == False:
+                                #     return jsonify({'success' : False}), 200
                         except requests.exceptions.RequestException as e:
                             print e
                             return jsonify({'success' : False}), 200
