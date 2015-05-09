@@ -133,6 +133,13 @@ class Client:
             print "  %-24s" % username
         print "\n",
 
+    def print_conversation_table(self):
+        print "=== Local Conversation Table ==="
+        recipients = sorted(self.conversations.keys())
+        for recipient in recipients:
+            print "  %-24s" % recipients
+        print "\n",
+
     def gen_keys(self):
         self.rsa = RSA_gen(4096)
         self.n, self.e, self.d = RSA_keys(self.rsa)
@@ -208,7 +215,7 @@ class Client:
                         del self.shard_table[shard_range]
                         continue
 
-                server = server(server_data['url'], server_data['server_pk_n'], server_data['server_pk_e'])
+                server = Server(server_data['url'], server_data['server_pk_n'], server_data['server_pk_e'])
 
                 if shard_range not in self.shard_table:                     # Shard is new
                     self.shard_table[shard_range] = server
