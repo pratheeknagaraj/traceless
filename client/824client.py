@@ -562,6 +562,7 @@ class Client:
                 "message"                   :  ciphertext}
 
         r = send_request(slave_url, PUSH, args)
+        print r
         ust.receive(r['blinded_sign'])
 
         while r['success'] == False:                        # Failed request, retry
@@ -581,6 +582,7 @@ class Client:
             args["blinded_nonce"]   = ust.blinded_nonce
 
             r = send_request(slave_url, PUSH, args)
+            print r
             ust.receive(r['blinded_sign'])
             time.sleep(SLAVE_RETRY_TIME)
 
