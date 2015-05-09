@@ -58,6 +58,7 @@ NEW_CONVERSATION_WAIT   = 3.000     # Wait 3 second
 NEW_MESSAGE_WAIT        = 1.000     # Wait 1 second
 SERVER_UPDATE_WAIT      = 5.000     # Wait 5 seconds
 SLAVE_RETRY_TIME        = 0.500     # Wait 0.5 second
+SLAVE_WAIT_TIME         = 0.500     # Wait 0.5 second
 
 class Client:
 
@@ -526,6 +527,10 @@ class Client:
             print "\nERROR: server cannot accept messages at this time\n>> ",
             return 
 
+        if slave_url not in self.ust_table:
+            print "\nERROR: please retry your message again\n>> ",
+            return 
+
         ust = self.ust_table[slave_url]
         ust.lock.acquire()
         ust.prepare()
@@ -539,6 +544,16 @@ class Client:
         r = send_request(slave_url, PUSH, args)
 
         while r['success'] == False:                        # Failed request, retry
+            if ust.lock.locked():
+                ust.lock.release()
+
+            slave_url = self.get_slave_from_slot(write_slot_id)
+            if slave_url not in self.ust_table:
+                time.sleep(SLAVE_WAIT_TIME)
+                continue
+
+            ust = self.ust_table[slave_url]
+            ust.lock.acquire()
             ust.prepare()
             args["nonce"]           = ust.nonce
             args["signature"]       = ust.signature
@@ -575,6 +590,17 @@ class Client:
                 r = send_request(slave_url, PULL, args)
 
                 while r['success'] == False:                        # Failed request, retry
+                   if ust.lock.locked():
+                        ust.lock.release()
+                        
+                    slave_url = self.get_slave_from_slot(write_slot_id)
+                    if slave_url not in self.ust_table:
+                        time.sleep(SLAVE_WAIT_TIME)
+                        continue
+
+                    ust = self.ust_table[slave_url]
+                    ust.lock.acquire()
+
                     ust.prepare()
                     args["nonce"]           = ust.nonce
                     args["signature"]       = ust.signature
@@ -582,7 +608,7 @@ class Client:
 
                     r = send_request(slave_url, PULL, args)
                     time.sleep(SLAVE_RETRY_TIME)
-                                    
+
                 ust.receive(r['blinded_sign'])
                 ust.lock.release()
 

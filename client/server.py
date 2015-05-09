@@ -6,6 +6,4 @@ class Server:
 		self.e = e
 
 	def equal(self, other_server):
-		self.url = other_server.url
-		self.n = other_server.n
-		self.e = other_server.e
+		return self.url == other_server.url and self.n = other_server.n and self.e = other_server.e
