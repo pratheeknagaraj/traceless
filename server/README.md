@@ -1,4 +1,4 @@
-heckup-Backend
+# Traceless Single Server  
 
 ## Prequisites
 
@@ -6,8 +6,6 @@ First, we need to setup the project.
 
     # install mysql and swig
     brew install mysql
-    brew install swig
-    brew install rabbitmq
 
     # set up virtualenv
     mkvirtualenv traceless
@@ -22,4 +20,5 @@ First, we need to setup the project.
 
     # Run the server
     python traceless_server.py runserver
-    ##### python checkup_web.py runserver --host 0.0.0.0 
+
+
