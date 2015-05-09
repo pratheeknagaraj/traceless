@@ -189,10 +189,9 @@ class Client:
 
             args = {"nonce"                     :  ust.nonce,
                     "signature"                 :  ust.signature,
-                    "blinded_nonce"             :  ust.blinded_nonce, 
-                    "client_server_table_ptr"   :  self.server_table_ptr}
-
-            r = send_request(MASTER_URL, UPDATE_SERVER_TABLE, args)
+                    "blinded_nonce"             :  ust.blinded_nonce}
+                    
+            r = send_request(MASTER_URL, UPDATE_SERVER_VIEW, args)
 
             ust.receive(r['blinded_sign'])
             ust.lock.release()
