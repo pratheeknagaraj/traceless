@@ -140,6 +140,9 @@ class Client:
             print "  %-24s" % recipients
         print "\n",
 
+    def print_conversation(self,username):
+        pass
+
     def gen_keys(self):
         self.rsa = RSA_gen(4096)
         self.n, self.e, self.d = RSA_keys(self.rsa)
@@ -455,7 +458,7 @@ class Client:
         return True
 
     def get_slave_from_slot(self, slot_id):
-        ok, shard = get_shard_from_slot(slot_id)
+        ok, shard = self.get_shard_from_slot(slot_id)
         if not ok:
             return False
         return shard.url
