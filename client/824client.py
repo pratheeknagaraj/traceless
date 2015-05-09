@@ -237,7 +237,7 @@ class Client:
                 if shard_range not in self.shard_table:                     # Shard is new
                     self.shard_table[shard_range] = server
                     self.add_new_server(server)
-                elif self.shard_table[shard_range].equal(server) == False:  # New server is resposible for this shard
+                elif self.shard_table[shard_range].equals(server) == False:  # New server is resposible for this shard
                     self.shard_table[shard_range] = server
                     self.add_new_server(server)
             
