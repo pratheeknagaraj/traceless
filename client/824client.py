@@ -590,9 +590,9 @@ class Client:
                 r = send_request(slave_url, PULL, args)
 
                 while r['success'] == False:                        # Failed request, retry
-                   if ust.lock.locked():
+                    if ust.lock.locked():
                         ust.lock.release()
-                        
+
                     slave_url = self.get_slave_from_slot(write_slot_id)
                     if slave_url not in self.ust_table:
                         time.sleep(SLAVE_WAIT_TIME)
