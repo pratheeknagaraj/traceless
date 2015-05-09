@@ -141,8 +141,12 @@ class Client:
         print "\n",
 
     def print_conversation(self,username):
-        if usename not in self.user_table:
-            print "ERROR: user " + username + " does not exist"
+        if username not in self.user_table:
+            print "ERROR: user " + username + " does not exist\n>> "
+
+        if username not in self.conversations:
+            print "ERROR"
+
         pass
 
     def gen_keys(self):
@@ -458,7 +462,7 @@ class Client:
             time.sleep(NEW_CONVERSATION_WAIT)
         return
 
-    def shards_available():
+    def shards_available(self):
         if len(self.shard_table) == 0:
             return False
         return True
