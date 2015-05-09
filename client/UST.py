@@ -1,5 +1,6 @@
 import random
 from traceless_math import *
+import threading
 
 class UST:
 
@@ -8,6 +9,10 @@ class UST:
         self.server_pk_e = server_pk_e
         self.nonce = None
         self.signature = None
+        self.lock = threading.Lock()
+
+    def __init__(self, server):
+        self.__init__(server.n, server.e)
 
     def blind(self,nonce):
         R, self.mod_inv = self.inverse()
