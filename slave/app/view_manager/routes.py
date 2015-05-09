@@ -35,7 +35,7 @@ def send_ping():
                         args = {
                             'messages_table' : app.jinja_env.globals['server_messages_table'] 
                         }
-                        response = requests.post(app.jinja_env.globals['server_master_url'] + "/process_forward", headers=headers, data=json.dumps(args))
+                        response = requests.post(r['views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
                         r = json.loads(response.text)
                         if r['success'] == False:
                             return jsonify({'success' : False}), 200
@@ -46,18 +46,21 @@ def send_ping():
                 app.jinja_env.globals['server_view_number'] = r['views'][app.jinja_env.globals['shard']]['N']
                 app.jinja_env.globals['server_views'] = r['views']
             
-            return jsonify({'success' : True}), 200 
+            return jsonify({'success' : True,
+                            'server_views' : r['views']}), 200 
              
         except requests.exceptions.RequestException as e:
             print e
             return jsonify({'success' : False}), 200
 
-@view_manager.route('/process_forward', methods=['POST']):
+@view_manager.route('/process_forward', methods=['POST'])
+def process_forward():
     with app.jinja_env.globals['server_view_manager_lock']:
         if app.jinja_env.globals['server_views'][app.jinja_env.globals['shard']]['B'] != app.jinja_env.globals['server_me_url']:
             return jsonify({'success' : False}), 200
         for slot in request.json['messages_table']:
             app.jinja_env.globals['server_messages_table'][slot] = request.json['messages_table'][slot]
+        print server_messages_table
         return jsonify({'success' : True}), 200
     
 def get_shard(views):

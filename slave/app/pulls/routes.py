@@ -15,9 +15,10 @@ def pull():
         if request.json['nonce'] in server_seen_nonces:
             return server_seen_nonces[request.json['nonce']]
 
-        shard = literal_eval(app.jinja_env.globals['shard'])
-        if request.json['slot_id'] < shard[0] or  request.json['slot_id'] >= shard[1] \
-                or app.jinja_env.globals['server_views'][shard]['P'] != app.jinja_env.globals['server_me_url']
+        shard = app.jinja_env.globals['shard']
+        srange = literal_eval(app.jinja_env.globals['shard'])
+        if request.json['slot_id'] < srange[0] or  request.json['slot_id'] >= srange[1] \
+                or app.jinja_env.globals['server_views'][shard]['P'] != app.jinja_env.globals['server_me_url']:
             server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
@@ -27,7 +28,7 @@ def pull():
                 args = {
                     'messages_table' :  {}
                 }
-                response = requests.post(app.jinja_env.globals['server_master_url'] + "/process_forward", headers=headers, data=json.dumps(args))
+                response = requests.post(app.jinja_env.globals['server_views'][shard]['B'] + "/process_forward", headers=headers, data=json.dumps(args))
                 r = json.loads(response.text)
                 if r['success'] == False:
                     server_seen_nonces[request.json['nonce']] = jsonify({'success' : False,
@@ -45,6 +46,7 @@ def pull():
         else:
             server_seen_nonces[request.json['nonce']] = jsonify({'messages' : [],
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
+
         return server_seen_nonces[request.json['nonce']]
 
 # @pulls.route('/delete', methods=['POST'])

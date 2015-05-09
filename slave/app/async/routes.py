@@ -11,3 +11,7 @@ def ping():
     print "ping!"
     headers = {'content-type': 'application/json'}
     response = requests.post("http://localhost:9000" + "/send_ping", headers=headers, data=json.dumps({}))
+    r = json.loads(response.text)
+    if r['success'] is True:
+    	print r['server_views'] 
+
