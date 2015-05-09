@@ -16,3 +16,6 @@ config.py
 
 # Dump files
 *.dump
+
+# Celery db files
+*.db
