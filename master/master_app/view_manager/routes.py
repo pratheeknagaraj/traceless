@@ -95,8 +95,8 @@ def update_server_view():
                 else:
                     shards[shard] = {
                         'url'  :  app.jinja_env.globals['server_views'][shard]['P'],
-                        'n'    :  app.jinja_env.globals['slave_keys'][app.jinja_env.globals['server_views'][shard]]['n'],
-                        'd'    :  app.jinja_env.globals['slave_keys'][app.jinja_env.globals['server_views'][shard]]['d']
+                        'server_pk_n'    :  app.jinja_env.globals['slave_keys'][app.jinja_env.globals['server_views'][shard]['P']]['n'],
+                        'server_pk_e'    :  app.jinja_env.globals['slave_keys'][app.jinja_env.globals['server_views'][shard]['P']]['e']
                     }
             server_seen_nonces[request.json['nonce']] = jsonify({'shards' : shards,
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
@@ -114,7 +114,7 @@ def connect_to_slave():
                 return server_seen_nonces[request.json['nonce']]
             slave_n = app.jinja_env.globals['slave_keys'][request.json['slave_url']]['n']
             slave_d = app.jinja_env.globals['slave_keys'][request.json['slave_url']]['d'] 
-            server_seen_nonces[request.json['nonce']] = jsonify({'blind_slave_sign' : master_ust_sign_for_slave(request.json['blinded_slave_nonce'], slave_n, slave_d), 
+            server_seen_nonces[request.json['nonce']] = jsonify({'blinded_slave_sign' : traceless_crypto.master_ust_sign_for_slave(request.json['blinded_slave_nonce'], slave_n, slave_d), 
                                                                 'blinded_sign' : traceless_crypto.ust_sign(request.json['blinded_nonce'])}), 200
             return server_seen_nonces[request.json['nonce']]
 

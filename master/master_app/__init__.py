@@ -36,7 +36,7 @@ def create_app(config_name):
     app.jinja_env.globals['server_pk'] = rsa.n, rsa.e  
     app.jinja_env.globals['server_sk'] = rsa.n, rsa.d
     
-    app.jinja_env.globals['num_shards_init'] = 2
+    app.jinja_env.globals['num_shards_init'] = 1
     app.jinja_env.globals['num_slaves_init'] = 2 * app.jinja_env.globals['num_shards_init']
     app.jinja_env.globals['slave_keys'] = {} # In the form {url : {n : ---, d: ---, e : ---}}
 
