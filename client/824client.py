@@ -323,7 +323,7 @@ class Client:
 
         while True:
             slot_id = random.getrandbits(128) 
-            if get_shard_from_slot(slot_id)[0]:
+            if self.get_shard_from_slot(slot_id)[0]:
                 break
 
         return slot_id, None, None
