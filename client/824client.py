@@ -109,17 +109,17 @@ class Client:
         elif cmd_type == "2" or cmd_type == "ct":
             self.print_conversation_table()
         elif cmd_type == "3" or cmd_type == "c":
-            if len(cmd_args) < 2:
+            if len(parts) < 2:
                 return "ERROR: please enter a valid command"
             cmd_args = parts[1]
             self.init_conversation(cmd_args)
         elif cmd_type == "4" or cmd_type == "mu":
-            if len(cmd_args) < 2:
+            if len(parts) < 2:
                 return "ERROR: please enter a valid command"
             cmd_args = parts[1]
             self.print_conversation(cmd_args)
         elif cmd_type == "5" or cmd_type == "m":
-            if len(cmd_args) < 2:
+            if len(parts) < 2:
                 return "ERROR: please enter a valid command"
             cmd_args = parts[1]
             split = cmd_args.split(' ', 1)
