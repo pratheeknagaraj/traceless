@@ -141,6 +141,8 @@ class Client:
         print "\n",
 
     def print_conversation(self,username):
+        if usename not in self.user_table:
+            print "ERROR: user " + username + " does not exist"
         pass
 
     def gen_keys(self):
@@ -347,7 +349,7 @@ class Client:
             print "ERROR: Please enter a username that is not your own"
             return 
 
-        if recipient not in self.user_table[recipient]:
+        if recipient not in self.user_table:
             print "ERROR: Please enter a username that is available"
             return 
 
