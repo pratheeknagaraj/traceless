@@ -7,7 +7,6 @@ import thread
 import json
 import binascii
 import math
-import base64
 import threading
 
 from bitarray import *
@@ -18,13 +17,7 @@ from UST import *
 from user import *
 from conversation import *
 from server import *
-
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_PSS
-from Crypto.Hash import SHA
-from Crypto import Random
-from Crypto.PublicKey import ElGamal
-from Crypto.Util.number import GCD
+from client_crypto import *
 
 # Master URL
 MASTER_URL = 'http://localhost:5000'
@@ -91,7 +84,7 @@ class Client:
 
     def updates(self):
         try:
-            thread.start_new_thread(self.client_update, ())
+            thread.start_new_thread(self.user_update, ())
             thread.start_new_thread(self.conversation_update, ())
             thread.start_new_thread(self.message_update, ())
             thread.start_new_thread(self.server_update, ())
@@ -99,6 +92,8 @@ class Client:
             print "ERRROR: unable to start client threads"
             print "FATAL: client unable to update"
             sys.exit(0)
+
+    # -------------------------[ INPUT ]------------------------- #
 
     def client_input(self):
         while True:
@@ -114,14 +109,22 @@ class Client:
         elif cmd_type == "2" or cmd_type == "ct":
             self.print_conversation_table()
         elif cmd_type == "3" or cmd_type == "c":
+            if len(cmd_args) < 2:
+                return "ERROR: please enter a valid command"
             cmd_args = parts[1]
             self.init_conversation(cmd_args)
         elif cmd_type == "4" or cmd_type == "mu":
+            if len(cmd_args) < 2:
+                return "ERROR: please enter a valid command"
             cmd_args = parts[1]
             self.print_conversation(cmd_args)
         elif cmd_type == "5" or cmd_type == "m":
+            if len(cmd_args) < 2:
+                return "ERROR: please enter a valid command"
             cmd_args = parts[1]
             split = cmd_args.split(' ', 1)
+            if len(split) < 2:
+                return "ERROR: please enter a valid command"
             username = split[0]
             message = split[1] 
             self.send_message(username, message)
@@ -132,6 +135,8 @@ class Client:
             print "  4: [4,mu] <username>           - Print Conversation with 'username'"
             print "  5: [5,m]  <username> <message> - Send 'message' to 'username'"
             print "  H: [H,h,Help,help]             - Print this help message"
+
+    # -------------------------[ PRINTING ]------------------------- #
 
     def print_user_table(self): 
         print "=== Local User Table ==="
@@ -156,6 +161,8 @@ class Client:
 
         conversation = self.conversations[username]
         print "\n" + conversation.get_conversation() + "\n>> ",
+
+    # -------------------------[ SUBSCRIBE ]------------------------- #
 
     def gen_keys(self):
         self.rsa = RSA_gen(4096)
@@ -204,7 +211,10 @@ class Client:
         self.user_table_ptr = 0
         self.conversations_table_ptr = 0
 
+        print "Hello " + self.username + ", welcome to Traceless!"
         return
+
+    # -------------------------[ SERVER UPDATE ]------------------------- #
 
     def server_update(self):
         while True:
@@ -237,7 +247,7 @@ class Client:
                 if shard_range not in self.shard_table:                     # Shard is new
                     self.shard_table[shard_range] = server
                     self.add_new_server(server)
-                elif self.shard_table[shard_range].equals(server) == False:  # New server is resposible for this shard
+                elif self.shard_table[shard_range].equals(server) == False: # New server is resposible for this shard
                     self.shard_table[shard_range] = server
                     self.add_new_server(server)
             
@@ -274,7 +284,9 @@ class Client:
         slave_ust.receive(r['blinded_slave_sign'])
         slave_ust.lock.release()
 
-    def client_update(self):
+    # -------------------------[ USER UPDATE ]------------------------- #
+
+    def user_update(self):
         while True:
             ust = self.ust_table[MASTER_URL]
             ust.lock.acquire()
@@ -307,6 +319,8 @@ class Client:
 
             time.sleep(NEW_CLIENT_WAIT)
         return
+
+    # -------------------------[ RESERVATIONS ]------------------------- #
 
     def reserve_slot(self):
         while True:
@@ -346,6 +360,8 @@ class Client:
 
         return slot_id, None, None
 
+    # -------------------------[ SHARD HELPERS ]------------------------- #
+
     def get_shard_from_slot(self, slot_id):
         for shard in self.shard_table:
             if self.slot_in_shard(slot_id, shard):
@@ -356,6 +372,20 @@ class Client:
         if shard[0] <= slot_id < shard[1]:
             return True
         return False
+
+    def shards_available(self):
+        if len(self.shard_table) == 0:
+            return False
+        return True
+
+    def get_slave_from_slot(self, slot_id):
+        ok, shard_range = self.get_shard_from_slot(slot_id)
+        if not ok:
+            return False
+        shard = self.shard_table[shard_range]
+        return shard.url
+
+    # -------------------------[ CONVERSATIONS ]------------------------- #
 
     def init_conversation(self, recipient):
         if recipient == self.username:
@@ -471,17 +501,7 @@ class Client:
             time.sleep(NEW_CONVERSATION_WAIT)
         return
 
-    def shards_available(self):
-        if len(self.shard_table) == 0:
-            return False
-        return True
-
-    def get_slave_from_slot(self, slot_id):
-        ok, shard_range = self.get_shard_from_slot(slot_id)
-        if not ok:
-            return False
-        shard = self.shard_table[shard_range]
-        return shard.url
+    # -------------------------[ MESSAGES ]------------------------- #
 
     def send_message(self, username, text): #, slot_id, next_block, ND, ND_signed):
         if len(text) > 256:
@@ -694,57 +714,7 @@ def send(url, headers, data):
     response = requests.post(url, headers=headers, data=data)
     return response
 
-def RSA_gen(size=4096):
-    return RSA.generate(size)
-
-def RSA_gen_user(user):
-    return RSA.construct((user.pk_n,user.pk_e))
-
-def RSA_gen_user_sign(user):
-    return RSA.construct((user.pk_sign_n,user.pk_sign_e))
-
-def RSA_keys(rsa):
-    return rsa.n, rsa.e, rsa.d #returns RSA key object, n, e (both public) and secret key d
-
-def RSA_encrypt(message, rsa): #takes in message, n, and e
-    k = random.getrandbits(2048)
-    return base64.encodestring(rsa.encrypt(message, k)[0])
-
-def RSA_decrypt(message, rsa):
-    return rsa.decrypt(base64.decodestring(message))
-
-def PKCS1_sign(message, rsa):
-    h = SHA.new()
-    h.update(message)
-    signer = PKCS1_PSS.new(rsa)
-    signature = signer.sign(h)
-    return base64.encodestring(signature)
-
-def PKCS1_verify(signature, message, rsa):
-    h = SHA.new()
-    h.update(base64.decodestring(message))
-    verifier = PKCS1_PSS.new(rsa)
-    return verifier.verify(h, signature)
-
-def ElG_sign(message,key):
-    h = SHA.new(message).digest()
-    while 1:
-        k = Random.random.StrongRandom().randint(1,key.p-1)
-        if GCD(k,key.p-1)==1: 
-            break
-    sig = key.sign(h,k)
-    return sig
-
-def H(m):
-    """
-   return hash (256-bit integer) of string m, as long integer.
-   If the input is an integer, treat it as a string.
-   """
-    m = str(m)
-    return int(hashlib.sha256(m).hexdigest(),16)
-
-
-
+# ====== Handle Boot =======
 if len(sys.argv) < 2:
     print "ERROR: Please start client with an input username"
     sys.exit(0)
