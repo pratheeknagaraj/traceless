@@ -82,6 +82,9 @@ Now we can run the master server
 
     # Run the celery process (in a new tab, but make sure to activate the 
     # virtualenv)
+    # NOTE: Celery can be a little finicky on OSX (have not tested on other operating
+    # systems), so make sure that the process isn't gushing out errors because of leaks
+    # between virtual hosts
     python start_celery.py worker -A master_app --beat
 
 Similarly we can run each slave. Remember these all need to run with different RabbitMQ virtual hosts
@@ -101,6 +104,7 @@ Similarly we can run each slave. Remember these all need to run with different R
 
     # Run the celery process (in a new tab, but make sure to activate the 
     # virtualenv)
+    # NOTE: Make sure Celery is working properly (see above)
     python start_celery.py worker -A master_app --beat
 
 
