@@ -227,7 +227,7 @@ class Client:
             time.sleep(SERVER_UPDATE_WAIT)
         return
 
-    def add_new_server(server):
+    def add_new_server(self, server):
         # Check if the server table does not have identifcal server under url
         if server.url in self.server_table:
             if self.server_table[server.url].equals(server):
@@ -248,7 +248,6 @@ class Client:
                 "slave_url"             :  server.url}
 
         r = send_request(MASTER_URL, CONNECT_TO_SLAVE, args)
-
 
         ust.receive(r['blinded_sign'])
         ust.lock.release()
